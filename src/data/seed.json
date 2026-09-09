@@ -1,0 +1,28 @@
+{
+  "duties": [
+    { "id": "change-sheets", "name": "Change all bed sheets", "area": "Bedrooms" },
+    { "id": "clean-car", "name": "Clean car", "area": "Errands" },
+    { "id": "rock-climbing", "name": "Sid's rock climbing", "area": "Kids" },
+    { "id": "wash-rugs", "name": "Wash rugs", "area": "Laundry" },
+    { "id": "clean-windows", "name": "Clean windows", "area": "Cleaning" },
+    { "id": "aircon-cleaning", "name": "Aircon cleaning", "area": "Cleaning" }
+  ],
+  "meals": [
+    { "id": "vegetable-samosas", "name": "Vegetable samosas", "type": "appetizer" },
+    { "id": "tomato-soup", "name": "Tomato soup", "type": "appetizer" },
+    { "id": "french-toast", "name": "French toast", "type": "main" },
+    { "id": "scrambled-eggs-avocado", "name": "Scrambled eggs with avocado", "type": "main" },
+    { "id": "masala-dosa", "name": "Masala dosa", "type": "main" },
+    { "id": "vegetable-upma", "name": "Vegetable upma", "type": "main" },
+    { "id": "chana-masala", "name": "Chana masala", "type": "main" },
+    { "id": "dal-tadka", "name": "Dal tadka", "type": "main" },
+    { "id": "palak-paneer", "name": "Palak paneer", "type": "main" },
+    { "id": "chicken-curry", "name": "Chicken curry", "type": "main" },
+    { "id": "vegetable-biryani", "name": "Vegetable biryani", "type": "main" },
+    { "id": "eating-out", "name": "Eating out", "type": "main" },
+    { "id": "steamed-rice", "name": "Steamed rice", "type": "side" },
+    { "id": "roti", "name": "Roti", "type": "side" },
+    { "id": "cucumber-raita", "name": "Cucumber raita", "type": "side" },
+    { "id": "green-salad", "name": "Green salad", "type": "side" }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "homechore",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite --host=0.0.0.0",
+    "dev:server": "node --watch server.js",
+    "build": "vite build",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@lucide/vue": "^1.43.0",
+    "hono": "^4.13.7",
+    "naive-ui": "^2.45.3",
+    "vue": "^3.5.41"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "concurrently": "^10.0.5",
+    "vite": "^8.2.2"
+  }
+}

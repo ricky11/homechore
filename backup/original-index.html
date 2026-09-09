@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Home Chore Schedule</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 24px; color: #222; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  .sub { color: #555; margin-bottom: 10px; }
+  .toolbar { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  button { padding: 8px 14px; border: none; border-radius: 6px; background: #2c7be5; color: #fff; cursor: pointer; font-size: 14px; }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: #6c757d; }
+  .legend { display: flex; gap: 10px; margin: 8px 0; font-size: 13px; align-items: center; flex-wrap: wrap; }
+  .chip { padding: 3px 12px; border-radius: 12px; border: 1px solid #999; }
+  .chip.anu { background: #ffe8a3; }
+  .chip.swarna { background: #bee3f8; }
+  .chip.both { background: #c6f6d5; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  th, td { border: 1px solid #444; padding: 6px 8px; font-size: 13.5px; vertical-align: top; }
+  th { background: #1f2937; color: #fff; }
+  td[contenteditable]:focus { outline: 2px solid #2c7be5; outline-offset: -2px; background: #fffbe6; }
+  td.day { min-width: 88px; text-align: center; }
+  td.task { width: 210px; font-weight: 600; background: #f8f9fa; }
+  td.time { width: 110px; color: #555; text-align: center; background: #f8f9fa; }
+  td.anu { background: #ffe8a3; }
+  td.swarna { background: #bee3f8; }
+  td.both { background: #c6f6d5; }
+  tr.hours td { font-weight: 700; background: #e9ecef; }
+  .del { background: #e53e3e; color: #fff; border: none; border-radius: 4px; padding: 2px 7px; cursor: pointer; }
+  .signwrap { display: flex; gap: 24px; margin-top: 18px; flex-wrap: wrap; }
+  .sign { flex: 1; min-width: 220px; border: 1px dashed #888; border-radius: 8px; padding: 10px; }
+  .sigline { margin-top: 30px; border-bottom: 1px solid #333; min-height: 18px; }
+  #notes { border: 1px solid #bbb; border-radius: 6px; min-height: 48px; padding: 8px; margin-top: 6px; }
+  .hint { font-size: 12px; color: #777; margin-top: 6px; }
+  @media print {
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+    body { margin: 0; }
+    th, td { font-size: 11.5px; padding: 4px 6px; }
+    td[contenteditable]:focus { outline: none; }
+  }
+  @page { size: A4 landscape; margin: 10mm; }
+</style>
+</head>
+<body>
+
+<h1>🏠 Weekly Home Chore Schedule</h1>
+<div class="sub">Week of: <strong id="weekOf" contenteditable="true">Mon, 24 June 2025 – Sun, 30 June 2025</strong></div>
+
+<div class="legend">
+  <strong>Legend:</strong>
+  <span class="chip anu">ANU</span>
+  <span class="chip swarna">SWARNA</span>
+  <span class="chip both">BOTH</span>
+</div>
+
+<div class="toolbar no-print">
+  <button onclick="window.print()">🖨️ Print</button>
+  <button class="secondary" onclick="downloadCSV()">⬇️ Export CSV (Excel / Google Sheets)</button>
+  <button class="secondary" onclick="addTask()">➕ Add Task</button>
+  <button class="secondary" onclick="resetAll()">↺ Reset</button>
+</div>
+<div class="hint no-print">Click any cell to edit. Typing ANU / SWARNA / BOTH auto-colors the cell. Edits save automatically in this browser.</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task / Area</th><th>Time</th>
+      <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+      <th class="no-print" style="width:34px;"></th>
+    </tr>
+  </thead>
+  <tbody id="tbody">
+    <tr>
+      <td class="task" contenteditable="true">Sweep & mop – living, dining, kitchen</td>
+      <td class="time" contenteditable="true">7:00–8:00 AM</td>
+      <td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Wash utensils & counters (morning)</td>
+      <td class="time" contenteditable="true">8:00–8:30 AM</td>
+      <td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Make beds & tidy bedrooms</td>
+      <td class="time" contenteditable="true">8:30–9:00 AM</td>
+      <td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Cooking – lunch & dinner prep</td>
+      <td class="time" contenteditable="true">10:00 AM–12:30 PM</td>
+      <td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">
+
+
+ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Laundry – wash, dry & fold</td>
+      <td class="time" contenteditable="true">12:30–1:30 PM</td>
+      <td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">BOTH</td><td class="day" contenteditable="true">—</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Bathroom & toilet cleaning</td>
+      <td class="time" contenteditable="true">2:00–3:00 PM</td>
+      <td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">—</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Dusting furniture, fans & shelves</td>
+      <td class="time" contenteditable="true">3:00–3:30 PM</td>
+      <td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Evening dishes & kitchen close-down</td>
+      <td class="time" contenteditable="true">8:00–8:45 PM</td>
+      <td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">SWARNA</td><td class="day" contenteditable="true">—</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Take out trash & recycling</td>
+      <td class="time" contenteditable="true">7:30 PM</td>
+      <td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Grocery & vegetable shopping</td>
+      <td class="time" contenteditable="true">9:00–11:00 AM</td>
+      <td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">BOTH</td><td class="day" contenteditable="true">—</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Balcony & entrance sweeping</td>
+      <td class="time" contenteditable="true">6:30–7:00 AM</td>
+      <td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">ANU</td><td class="day" contenteditable="true">ANU</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+    <tr>
+      <td class="task" contenteditable="true">Weekly deep clean – fridge & cabinets</td>
+      <td class="time" contenteditable="true">10:00 AM–1:00 PM</td>
+      <td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td><td class="day" contenteditable="true">—</td> class="day" contenteditable="true">—</td><td class="day" contenteditable="true">BOTH</td>
+      <td class="no-print"><button class="del">✕</button></td>
+    </tr>
+  </tbody>
+</table>
+
+<div id="totals" style="margin-top:10px;font-size:13px;color:#555;font-weight:600;"></div>
+
+<div class="signwrap">
+  <div class="sign"><strong>ANU</strong><div class="sigline"></div><div style="font-size:12px;color:#666;">Signature & Date</div></div>
+  <div class="sign"><strong>SWARNA</strong><div class="sigline"></div><div style="font-size:12px;color:#666;">Signature & Date</div></div>
+  <div class="sign"><strong>Household Manager</strong><div class="sigline"></div><div style="font-size:12px;color:#666;">Signature & Date</div></div>
+</div>
+
+<h3 style="margin-top:18px;">Weekly Notes / Special Instructions</h3>
+<div id="notes" contenteditable="true">• SWARNA: weekly off on Sunday.<br>• ANU: half-day on Sunday (off after lunch).<br>• Grocery list is on the fridge — buy extra milk on Saturday.</div>
+
+<script>
+const KEY = 'choreScheduleV1';
+
+function autoColor(td){
+  const t = td.textContent.trim().toUpperCase();
+  td.classList.remove('anu','swarna','both');
+  if (t.includes('BOTH') || (t.includes('ANU') && t.includes('SWARNA'))) td.classList.add('both');
+  else if (t.includes('ANU')) td.classList.add('anu');
+  else if (t.includes('SWARNA')) td.classList.add('swarna');
+}
+
+function save(){
+  const data = {
+    week: document.getElementById('weekOf').innerHTML,
+    table: document.getElementById('tbody').innerHTML,
+    notes: document.getElementById('notes').innerHTML
+  };
+  localStorage.setItem(KEY, JSON.stringify(data));
+  updateTotals();
+}
+
+function load(){
+  const raw = localStorage.getItem(KEY);
+  if(!raw) return;
+  try{
+    const d = JSON.parse(raw);
+    if(d.week)  document.getElementById('weekOf').innerHTML = d.week;
+    if(d.table) document.getElementById('tbody').innerHTML = d.table;
+    if(d.notes) document.getElementById('notes').innerHTML = d.notes;
+  }catch(e){}
+}
+
+function wire(){
+  document.querySelectorAll('#tbody td.day').forEach(td => {
+    td.addEventListener('input', e => { autoColor(e.target); save(); });
+    autoColor(td);
+  });
+  document.querySelectorAll('#tbody .del').forEach(b => {
+    b.addEventListener('click', e => { e.target.closest('tr').remove(); save(); });
+  });
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    el.addEventListener('input', save);
+  });
+}
+
+function addTask(){
+  const tb = document.getElementById('tbody');
+  const tr = document.createElement('tr');
+  const days = Array(7).fill('<td class="day" contenteditable="true">—</td>').join('');
+  tr.innerHTML = '<td class="task" contenteditable="true">New task</td>' +
+                 '<td class="time" contenteditable="true">—</td>' + days +
+                 '<td class="no-print"><button class="del">✕</button></td>';
+  tb.appendChild(tr);
+  wire(); save();
+}
+
+function resetAll(){
+  if(confirm('Reset all edits and restore the original dummy schedule?')){
+    localStorage.removeItem(KEY);
+    location.reload();
+  }
+}
+
+function downloadCSV(){
+  const rows = [];
+  document.querySelectorAll('table tr').forEach(tr => {
+    const cells = [...tr.querySelectorAll('th,td')].filter(c => !c.classList.contains('no-print'));
+    rows.push(cells.map(c => '"' + c.textContent.trim().replace(/"/g,'""') + '"').join(','));
+  });
+  const blob = new Blob(['\ufeff' + rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'chore-schedule.csv';
+  a.click();
+}
+
+function updateTotals(){
+  let anu=0, swarna=0, both=0, open=0;
+  document.querySelectorAll('#tbody td.day').forEach(td => {
+    if(td.classList.contains('anu')) anu++;
+    else if(td.classList.contains('swarna')) swarna++;
+    else if(td.classList.contains('both')) both++;
+    else open++;
+  });
+  document.getElementById('totals').textContent =
+    'Workload this week → ANU: ' + anu + ' slots • SWARNA: ' + swarna +
+    ' slots • BOTH: ' + both + ' slots • Open/unassigned: ' + open;
+}
+
+load(); wire(); updateTotals();
+
+function backupJSON(){
+  const data = {
+    week:  document.getElementById('weekOf').innerHTML,
+    table: document.getElementById('tbody').innerHTML,
+    notes: document.getElementById('notes').innerHTML
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'chore-schedule-backup.json';
+  a.click();
+}
+
+function restoreJSON(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const d = JSON.parse(e.target.result);
+      if(d.week)  document.getElementById('weekOf').innerHTML  = d.week;
+      if(d.table) document.getElementById('tbody').innerHTML   = d.table;
+      if(d.notes) document.getElementById('notes').innerHTML   = d.notes;
+      wire(); save();
+      alert('Backup restored ✔');
+    }catch(err){ alert('Invalid backup file.'); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+</script>
+</body>
+</html>
