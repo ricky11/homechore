@@ -15,7 +15,7 @@ The app covers:
 
 ## Current Status
 
-The initial Vue application is complete and working.
+The Vue application and shared LAN persistence are complete and working. Hono serves both the built application and a small SQLite-backed API from one Node process.
 
 ### Completed
 
@@ -36,7 +36,9 @@ The initial Vue application is complete and working.
 - Added a Hono Node server with one shared `/api/state` route.
 - Added SQLite persistence through Node's built-in `node:sqlite` module.
 - Stores all shared planner data in `data/homechore.db`.
-- Added automatic saving with a visible save state.
+- Added automatic saving with a 250 ms debounce and a visible Saved, Saving, or Save failed state.
+- Added a server-unavailable screen instead of allowing the SPA to open with missing data.
+- Refreshes shared state when navigating between weeks or returning to Today.
 - Added week creation behavior:
   - An unvisited week starts blank.
   - A blank week offers Copy Previous Week Data when a preceding saved week exists.
@@ -54,6 +56,19 @@ The initial Vue application is complete and working.
 - Replaced PrimeVue after it displayed a runtime license warning.
 - Uses Naive UI for Vue-native controls and dialogs.
 - Uses Lucide icons through `@lucide/vue`.
+- Prints Local, Network, and Database locations when the Hono server starts.
+
+## Recovered Data
+
+The previous browser IndexedDB state was migrated into SQLite. Users do not need to recreate it.
+
+- 14 duty options, including the custom household duties
+- 16 meal options
+- Week `2026-09-07`: 7 duties and 1 meal selection
+- Week `2026-09-14`: 7 duties and 1 meal selection
+- No uploaded meal images existed in the old browser database
+
+The old browser IndexedDB may still exist locally, but it is no longer read or written by the application. SQLite is the source of truth.
 
 ## Original Planning Reference
 
@@ -77,6 +92,7 @@ These items informed the initial design but are not inserted automatically into 
 - Icons: `@lucide/vue`
 - API server: Hono with `@hono/node-server`
 - Persistence: SQLite using Node's built-in `node:sqlite`
+- Required runtime: Node.js 22.5 or newer
 - Authentication: None
 - Backend: One local Node process serving both the API and built Vue app
 - Hosting requirement: The host computer must remain running for LAN access
@@ -84,6 +100,8 @@ These items informed the initial design but are not inserted automatically into 
 - Animation: Vue's built-in `Transition`
 
 The SQLite file is `data/homechore.db`. Stop the server before copying it as a backup. The `data/` directory is ignored by Git.
+
+`GET /api/state` returns the shared catalog and weeks. `PUT /api/state` accepts a single week or catalog update and merges it into the stored document so editing one week does not replace unrelated weeks.
 
 ## Important Behavior
 
@@ -112,8 +130,14 @@ The SQLite file is `data/homechore.db`. Stop the server before copying it as a b
 - Confirmed meal image upload, thumbnail rendering, selection, and reload persistence.
 - Confirmed `GET` and `PUT /api/state` persist through SQLite.
 - Confirmed a browser edit made through localhost appears through the LAN URL.
+- Confirmed the API responds through `192.168.50.143`, not only localhost.
+- Confirmed the shared SQLite database contains the recovered catalog and two populated weeks.
 
 ## Running the App
+
+Requirements: Node.js 22.5 or newer.
+
+Development runs Vite and Hono together:
 
 ```sh
 npm install
@@ -135,6 +159,26 @@ Production build:
 npm run build
 ```
 
+`npm start` prints the current Local and Network URLs. The LAN address can change when the network changes.
+
+### Windows Firewall
+
+If another device cannot connect while the host can, run PowerShell as Administrator once:
+
+```powershell
+New-NetFirewallRule -DisplayName "Fairmont Home Planner" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8787 -Profile Private
+```
+
+Both devices must be connected to the same local network. The active Windows network profile should be Private.
+
+### Backup
+
+1. Stop `npm start`.
+2. Copy `data/homechore.db` to a safe location.
+3. Restart with `npm start`.
+
+The live database must not be committed to Git.
+
 ## Current Development URLs
 
 - Production/local: `http://localhost:8787/`
@@ -142,6 +186,13 @@ npm run build
 - Vite development client: `http://localhost:5173/`
 
 The LAN address may change when the network changes.
+
+## Repository
+
+- GitHub: `https://github.com/ricky11/homechore`
+- Branch: `main`
+- Last verified pushed commit: `80362b2` (`Build shared home chore planner`)
+- `data/`, `dist/`, and `node_modules/` are ignored
 
 ## Likely Next Iterations
 
