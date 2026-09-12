@@ -13,6 +13,7 @@ import {
   NInput as Textarea,
   NModal,
   NSelect as Select,
+  useMessage,
 } from 'naive-ui'
 import seed from './data/seed.json'
 
@@ -45,7 +46,13 @@ const weekdays = [
   { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 }, { label: 'Wed', value: 3 },
   { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 }, { label: 'Sun', value: 0 },
 ]
-const dutyEmojiOptions = ['🧹', '🧺', '🛏️', '🍳', '🧽', '🪟', '🚗', '🗑️', '🛒', '🌿', '👶', '📌']
+const dutyEmojiOptions = [
+  '🧹', '🧺', '🛏️', '🍳', '🧽', '🪟', '🚗', '🚙', '🚕', '🚌', '🛵', '🚲', '🅿️', '🗑️', '🛒', '🌿', '👶', '📌',
+  '🧴', '🪣', '🧼', '🧻', '🧯', '🧰', '🔧', '🔑', '💡', '🔋', '🪫', '📦',
+  '✉️', '📬', '📚', '🖥️', '📱', '🛁', '🚿', '🪥', '🧸', '🐕', '🐈',
+  '🌱', '💧', '🪴', '🧑‍🍳', '🥗', '🍽️', '🧃', '🚶', '🏃', '🧘', '💊', '🩺',
+  '🧷', '🪡', '✂️', '🧾', '💳', '🎁', '🎂', '🗓️', '⏰', '✅', '⭐', '❤️',
+]
   .map((emoji) => ({ label: emoji, value: emoji }))
 const dutyEmojiSuggestions = [
   { words: ['sheet', 'bed', 'pillow'], emoji: '🛏️' },
@@ -85,6 +92,7 @@ const editingOption = ref(null)
 const imageError = ref('')
 const saveState = ref('Saved')
 const previousWeekAvailable = ref(false)
+const message = useMessage()
 let saveTimer
 let hydrating = false
 
@@ -294,7 +302,11 @@ function dutiesFor(day, periodId) {
 function mealOptions(type) {
   return catalog.value.meals
     .filter((meal) => meal.type === type)
-    .map((meal) => ({ label: meal.name, value: meal.id, image: meal.image }))
+    .map((meal) => ({ label: meal.name, value: meal.id, image: mealImageUrl(meal.image) }))
+}
+
+function mealImageUrl(filename) {
+  return filename ? `/media/${encodeURIComponent(filename)}` : null
 }
 
 function renderMealLabel(option) {
@@ -532,9 +544,9 @@ async function addMealOption() {
   await saveCatalog()
 }
 
-async function imageToDataUrl(file) {
+async function imageToWebp(file) {
   if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.')
-  if (file.size > 10 * 1024 * 1024) throw new Error('Please choose an image smaller than 10 MB.')
+  if (file.size > 5 * 1024 * 1024) throw new Error('Please choose an image smaller than 5 MB.')
   const bitmap = await createImageBitmap(file)
   const scale = Math.min(1, 480 / Math.max(bitmap.width, bitmap.height))
   const canvas = document.createElement('canvas')
@@ -542,7 +554,20 @@ async function imageToDataUrl(file) {
   canvas.height = Math.round(bitmap.height * scale)
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
   bitmap.close()
-  return canvas.toDataURL('image/webp', 0.82)
+  return new Promise((resolve, reject) => canvas.toBlob(
+    (blob) => blob ? resolve(blob) : reject(new Error('Could not process this image.')),
+    'image/webp',
+    0.82,
+  ))
+}
+
+async function uploadMealImage(blob) {
+  const form = new FormData()
+  form.append('image', blob, 'meal.webp')
+  const response = await fetch('/api/media', { method: 'POST', body: form })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(result.error ?? 'Could not save this image.')
+  return result.filename
 }
 
 async function handleMealImage(event, target) {
@@ -550,9 +575,10 @@ async function handleMealImage(event, target) {
   if (!file) return
   imageError.value = ''
   try {
-    target.image = await imageToDataUrl(file)
+    target.image = await uploadMealImage(await imageToWebp(file))
   } catch (error) {
     imageError.value = error.message
+    message.error(error.message)
   } finally {
     event.target.value = ''
   }
@@ -771,7 +797,7 @@ onMounted(async () => {
         <form class="option-form duty-option-form" @submit.prevent="addDutyOption"><InputText v-model:value="newDuty.name" placeholder="Duty name" aria-label="Duty name" /><InputText v-model:value="newDuty.area" placeholder="Area, e.g. Kitchen" aria-label="Duty area" /><Select v-model:value="newDuty.emoji" :options="dutyEmojiOptions" clearable placeholder="Suggested" aria-label="Duty emoji" /><Button attr-type="submit"><CirclePlus :size="18" /> Add</Button></form>
         <div class="option-list">
           <div v-for="duty in catalog.duties" :key="duty.id" class="option-row">
-            <template v-if="editingOption?.kind === 'duty' && editingOption.originalId === duty.id"><InputText v-model:value="editingOption.name" /><InputText v-model:value="editingOption.area" /><Select v-model:value="editingOption.emoji" :options="dutyEmojiOptions" clearable aria-label="Duty emoji" /><Button size="small" @click="commitOptionEdit">Save</Button></template>
+            <template v-if="editingOption?.kind === 'duty' && editingOption.originalId === duty.id"><div class="option-edit-fields"><span class="duty-emoji duty-edit-preview" aria-hidden="true">{{ editingOption.emoji || suggestedDutyEmoji(editingOption.name) }}</span><InputText v-model:value="editingOption.name" /><InputText v-model:value="editingOption.area" /><Select v-model:value="editingOption.emoji" :options="dutyEmojiOptions" clearable aria-label="Duty emoji" /><Button size="small" @click="commitOptionEdit">Save</Button></div></template>
             <template v-else><div class="option-identity"><span class="duty-emoji" aria-hidden="true">{{ duty.emoji || suggestedDutyEmoji(duty.name) }}</span><div><strong>{{ duty.name }}</strong><span>{{ duty.area }}</span></div></div><div class="row-actions"><Button quaternary circle aria-label="Rename duty" @click="startEditOption('duty', duty)"><Pencil :size="16" /></Button><Button quaternary circle type="error" aria-label="Delete duty option" @click="deleteOption('duty', duty.id)"><Trash2 :size="16" /></Button></div></template>
           </div>
         </div>
@@ -784,7 +810,7 @@ onMounted(async () => {
             <ImagePlus :size="17" /><span>{{ newMeal.image ? 'Change image' : 'Add image' }}</span>
             <input type="file" accept="image/*" @change="handleMealImage($event, newMeal)" />
           </label>
-          <img v-if="newMeal.image" :src="newMeal.image" alt="New meal preview" class="meal-preview" />
+          <img v-if="newMeal.image" :src="mealImageUrl(newMeal.image)" alt="New meal preview" class="meal-preview" />
           <Button v-if="newMeal.image" quaternary circle type="error" aria-label="Remove new meal image" @click="newMeal.image = null"><X :size="16" /></Button>
           <Button attr-type="submit"><CirclePlus :size="18" /> Add</Button>
         </form>
@@ -792,16 +818,16 @@ onMounted(async () => {
         <div class="option-list">
           <div v-for="meal in catalog.meals" :key="meal.id" class="option-row">
             <template v-if="editingOption?.kind === 'meal' && editingOption.originalId === meal.id">
-              <div class="option-edit-fields">
+              <div class="meal-edit-fields">
                 <InputText v-model:value="editingOption.name" aria-label="Edit meal name" />
                 <Select v-model:value="editingOption.type" :options="mealParts.map(part => ({ label: part.label, value: part.id }))" />
                 <label class="image-picker"><ImagePlus :size="17" /><span>{{ editingOption.image ? 'Change image' : 'Add image' }}</span><input type="file" accept="image/*" @change="handleMealImage($event, editingOption)" /></label>
-                <img v-if="editingOption.image" :src="editingOption.image" :alt="`${editingOption.name} preview`" class="meal-preview" />
+                <img v-if="editingOption.image" :src="mealImageUrl(editingOption.image)" :alt="`${editingOption.name} preview`" class="meal-preview" />
                 <Button v-if="editingOption.image" quaternary circle type="error" aria-label="Remove meal image" @click="editingOption.image = null"><X :size="16" /></Button>
               </div>
               <Button size="small" @click="commitOptionEdit">Save</Button>
             </template>
-            <template v-else><div class="option-identity"><span class="meal-thumb"><img v-if="meal.image" :src="meal.image" alt="" /><CookingPot v-else :size="17" /></span><div><strong>{{ meal.name }}</strong><span>{{ meal.type }}</span></div></div><div class="row-actions"><Button quaternary circle aria-label="Rename meal" @click="startEditOption('meal', meal)"><Pencil :size="16" /></Button><Button quaternary circle type="error" aria-label="Delete meal option" @click="deleteOption('meal', meal.id)"><Trash2 :size="16" /></Button></div></template>
+            <template v-else><div class="option-identity"><span class="meal-thumb"><img v-if="meal.image" :src="mealImageUrl(meal.image)" alt="" /><CookingPot v-else :size="17" /></span><div><strong>{{ meal.name }}</strong><span>{{ meal.type }}</span></div></div><div class="row-actions"><Button quaternary circle aria-label="Rename meal" @click="startEditOption('meal', meal)"><Pencil :size="16" /></Button><Button quaternary circle type="error" aria-label="Delete meal option" @click="deleteOption('meal', meal.id)"><Trash2 :size="16" /></Button></div></template>
           </div>
         </div>
       </template>
