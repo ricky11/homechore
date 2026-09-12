@@ -2,7 +2,7 @@
 import { computed, h, nextTick, onMounted, ref, watch } from 'vue'
 import {
   ArrowDown, ArrowLeft, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, Clock3, Copy,
-  CookingPot, House, ImagePlus, ListPlus, NotebookPen, Pencil, Printer, RotateCcw,
+  CookingPot, Download, House, ImagePlus, ListPlus, NotebookPen, Pencil, Printer, RotateCcw,
   Settings2, Trash2, X,
 } from '@lucide/vue'
 import {
@@ -258,6 +258,193 @@ async function goToToday() {
 
 function printSchedule() {
   globalThis.print()
+}
+
+function pdfFilename(label) {
+  return `homechore-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${currentWeek.value.id}.pdf`
+}
+
+function drawPdfEmoji(pdf, emoji, x, y, size) {
+  const iconCanvas = globalThis.document.createElement('canvas')
+  iconCanvas.width = 64
+  iconCanvas.height = 64
+  const context = iconCanvas.getContext('2d')
+  context.font = '48px sans-serif'
+  context.fillText(emoji, 6, 50)
+  pdf.addImage(iconCanvas.toDataURL('image/png'), 'PNG', x, y, size, size)
+}
+
+function writePdfHeader(pdf, title, subtitle) {
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  pdf.setFillColor(38, 116, 90)
+  pdf.rect(0, 0, pageWidth, 20, 'F')
+  drawPdfEmoji(pdf, household.value.icon, 10, 5, 9)
+  pdf.setTextColor(255, 255, 255)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(12)
+  pdf.text('HomeChore', 22, 9)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.text(household.value.name, 22, 15)
+  pdf.setFontSize(8)
+  pdf.text(title, pageWidth - 10, 9, { align: 'right' })
+  pdf.text(subtitle, pageWidth - 10, 15, { align: 'right' })
+  pdf.setTextColor(38, 51, 47)
+}
+
+function writePdfSettings(pdf, position, width, size) {
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(size)
+  const settings = `Assignees: ${household.value.assignees.join(', ')} | Routine: ${periods.value.map((period) => `${period.label} ${periodRange(period)}`).join(' | ')}`
+  const lines = pdf.splitTextToSize(settings, width)
+  pdf.text(lines, 12, position)
+  return position + lines.length * (size * 0.48) + 3
+}
+
+function writeDailyPdf(pdf, day) {
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const fontSize = 8
+  const lineHeight = fontSize * 0.52
+  let position = 27
+  writePdfHeader(pdf, 'Daily plan', `${dayName(day)}, ${dayNumber(day)}`)
+  position = writePdfSettings(pdf, position, pageWidth - 24, 7)
+  const availability = availabilityFor(day)
+  if (availability) {
+    pdf.setTextColor(138, 53, 40)
+    pdf.setFontSize(7)
+    pdf.text(availability, 12, position)
+    pdf.setTextColor(38, 51, 47)
+    position += 5
+  }
+
+  const writeLines = (text, indent = 12, emoji = '') => {
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(fontSize)
+    const lines = pdf.splitTextToSize(text, pageWidth - indent - 12)
+    if (emoji) drawPdfEmoji(pdf, emoji, indent, position - 3.6, 4)
+    pdf.text(lines, indent + (emoji ? 6 : 0), position)
+    position += lines.length * lineHeight + 1.5
+  }
+
+  for (const period of periods.value) {
+    pdf.setFont('helvetica', 'bold')
+    pdf.setTextColor(38, 116, 90)
+    pdf.setFontSize(9)
+    pdf.text(`${period.label}  ${periodRange(period)}`, 12, position)
+    pdf.setTextColor(38, 51, 47)
+    position += 5
+    const duties = dutiesFor(day, period.id)
+    if (!duties.length) writeLines('No duties planned', 18)
+    for (const duty of duties) {
+      const timing = duty.time ? `${timeLabel(duty.time)} - ` : ''
+      writeLines(`${timing}${duty.name} (${duty.assignee})`, 18, dutyEmoji(duty))
+    }
+  }
+
+  const meals = mealSummary(day)
+  if (meals.length) {
+    pdf.setFont('helvetica', 'bold')
+    pdf.setTextColor(123, 91, 18)
+    pdf.setFontSize(9)
+    pdf.text('Meals', 12, position)
+    pdf.setTextColor(38, 51, 47)
+    position += 5
+    for (const meal of meals) writeLines(`${meal.label}: ${meal.value}`, 18)
+  }
+  if (day.notes.trim()) {
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(9)
+    pdf.text('Notes', 12, position)
+    position += 5
+    writeLines(day.notes, 18)
+  }
+  if (position > pageHeight - 10) message.warning('This daily plan has more detail than fits comfortably on one page.')
+}
+
+function writeWeeklyPdf(pdf) {
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const margin = 7
+  const gap = 3
+  const weekdayWidth = (pageWidth - (margin * 2) - (gap * 4)) / 5
+  const weekendWidth = (pageWidth - (margin * 2) - gap) / 2
+  const topY = 39
+  const topHeight = 116
+  const bottomY = topY + topHeight + gap
+  writePdfHeader(pdf, 'Weekly plan', weekLabel.value)
+  writePdfSettings(pdf, 25, pageWidth - 24, 5.5)
+
+  currentWeek.value.days.forEach((day, index) => {
+    const weekend = index > 4
+    const panelWidth = weekend ? weekendWidth : weekdayWidth
+    const x = weekend ? margin + (index - 5) * (weekendWidth + gap) : margin + index * (weekdayWidth + gap)
+    const panelY = weekend ? bottomY : topY
+    const panelHeight = weekend ? pageHeight - bottomY - 7 : topHeight
+    let position = panelY + 6
+    const writePanelText = (text, size = weekend ? 8 : 7.4, indent = 0, emoji = '') => {
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(size)
+      const lines = pdf.splitTextToSize(text, panelWidth - indent - (emoji ? 5 : 0))
+      if (emoji) drawPdfEmoji(pdf, emoji, x + indent, position - 3.2, 4)
+      pdf.text(lines, x + indent + (emoji ? 4 : 0), position)
+      position += lines.length * (size * 0.5) + 1.5
+    }
+    pdf.setFillColor(237, 246, 241)
+    pdf.rect(x, panelY, panelWidth, panelHeight, 'F')
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(weekend ? 11 : 9)
+    pdf.text(dayName(day), x + 2, position)
+    position += weekend ? 5 : 4
+    pdf.setFont('helvetica', 'normal')
+    writePanelText(dayNumber(day), weekend ? 8 : 7.4, 2)
+    const availability = availabilityFor(day)
+    if (availability) writePanelText(availability, weekend ? 7.5 : 6.8, 2)
+    for (const period of periods.value) {
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(38, 116, 90)
+      pdf.setFontSize(weekend ? 8 : 7)
+      pdf.text(`${period.label} ${periodRange(period)}`, x + 2, position)
+      pdf.setTextColor(38, 51, 47)
+      position += weekend ? 4.5 : 3.5
+      const duties = dutiesFor(day, period.id)
+      if (!duties.length) writePanelText('Open', weekend ? 7.5 : 6.8, 3)
+      for (const duty of duties) writePanelText(`${duty.time ? `${timeLabel(duty.time)} ` : ''}${duty.name} (${duty.assignee})`, weekend ? 7.8 : 7, 3, dutyEmoji(duty))
+    }
+    const meals = mealSummary(day)
+    if (meals.length) {
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(weekend ? 8 : 7)
+      pdf.text('Meals', x + 2, position)
+      position += weekend ? 4.5 : 3.5
+      for (const meal of meals) writePanelText(`${meal.label}: ${meal.value}`, weekend ? 7.5 : 6.8, 3)
+    }
+    if (day.notes.trim()) {
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(weekend ? 8 : 7)
+      pdf.text('Notes', x + 2, position)
+      position += weekend ? 4.5 : 3.5
+      writePanelText(day.notes, weekend ? 7.5 : 6.8, 3)
+    }
+  })
+}
+
+async function downloadCurrentPlanPdf() {
+  if (!currentWeek.value) return
+  try {
+    const { jsPDF } = await import('jspdf')
+    if (selectedDay.value) {
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      writeDailyPdf(pdf, selectedDay.value)
+      pdf.save(pdfFilename(`daily-${selectedDay.value.date}`))
+      return
+    }
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' })
+    writeWeeklyPdf(pdf)
+    pdf.save(pdfFilename('weekly'))
+  } catch {
+    message.error('Could not create this PDF.')
+  }
 }
 
 function retryConnection() {
@@ -643,7 +830,8 @@ onMounted(async () => {
       <div class="header-actions no-print">
         <span class="save-state">{{ saveState }}</span>
         <Button secondary aria-label="Manage options" @click="optionsDialogOpen = true"><Settings2 :size="18" /><span class="action-label">Manage</span></Button>
-        <Button secondary aria-label="Print schedule" @click="printSchedule"><Printer :size="18" /><span class="action-label">Print</span></Button>
+        <Button secondary :disabled="loading || Boolean(serverError) || !currentWeek" aria-label="Download current plan as PDF" @click="downloadCurrentPlanPdf"><Download :size="18" /><span class="action-label">Download PDF</span></Button>
+        <Button secondary aria-label="Print current plan" @click="printSchedule"><Printer :size="18" /><span class="action-label">Print</span></Button>
       </div>
     </header>
 

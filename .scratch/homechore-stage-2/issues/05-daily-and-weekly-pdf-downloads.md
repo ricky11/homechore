@@ -4,10 +4,10 @@
 
 **Blocked by:** 01: Household Identity and Management.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The Weekly view can download a readable PDF using the configured Household identity.
-- [ ] The Daily view can download a readable PDF using the configured Household identity.
-- [ ] PDF generation is entirely client-side and does not require accounts or cloud services.
-- [ ] Browser Print continues to work for the relevant view.
-- [ ] The production build passes.
+- [x] The Weekly view can download a readable PDF using the configured Household identity.
+- [x] The Daily view can download a readable PDF using the configured Household identity.
+- [x] PDF generation is entirely client-side and does not require accounts or cloud services.
+- [x] Browser Print continues to work for the relevant view.
+- [x] The production build passes.
