@@ -211,10 +211,10 @@ The LAN address may change when the network changes.
 - [ ] Limit source meal images to 5 MB and remove any existing embedded base64 images rather than migrating them.
 - [ ] Align the meal management row so its padded image, details, and edit/delete actions are on one row.
 - [ ] Add suggested and manually selectable emoji for duties without external AI or network calls.
-- [ ] Add Household settings for identity, Assignees, off-days, and Routine Periods in a single Manage dialog.
-- [ ] Keep three sensible Routine Period defaults while allowing users to rename and edit 2-6 non-overlapping periods.
-- [ ] Replace free-text optional duty times with 30-minute choices within the selected Routine Period.
-- [ ] Prevent a Routine Period from being removed while Duties still use it.
+ - [x] Add Household settings for identity, Assignees, off-days, and Routine Periods in a single Manage dialog.
+ - [x] Keep three sensible Routine Period defaults while allowing users to rename and edit 2-6 non-overlapping periods.
+ - [x] Replace free-text optional duty times with 30-minute choices within the selected Routine Period.
+ - [x] Prevent a Routine Period from being removed while Duties still use it.
 - [ ] Add dedicated Daily and Weekly downloadable PDF exports with `jsPDF`, retaining browser Print.
 
 ## Deferred Work

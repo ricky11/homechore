@@ -1,13 +1,14 @@
 <script setup>
 import { computed, h, nextTick, onMounted, ref, watch } from 'vue'
 import {
-  ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, Clock3, Copy,
+  ArrowDown, ArrowLeft, ArrowUp, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, Clock3, Copy,
   CookingPot, House, ImagePlus, ListPlus, NotebookPen, Pencil, Printer, RotateCcw,
   Settings2, Trash2, X,
 } from '@lucide/vue'
 import {
   NButton as Button,
   NCard,
+  NCheckbox as Checkbox,
   NInput as InputText,
   NInput as Textarea,
   NModal,
@@ -17,11 +18,6 @@ import seed from './data/seed.json'
 
 const DAY_MS = 86_400_000
 
-const periods = [
-  { id: 'morning', label: 'Morning', time: '6:30–11:00 am' },
-  { id: 'midday', label: 'Midday', time: '11:00 am–3:00 pm' },
-  { id: 'evening', label: 'Evening', time: '3:00–8:00 pm' },
-]
 const mealSlots = [
   { id: 'breakfast', label: 'Breakfast' },
   { id: 'lunch', label: 'Lunch' },
@@ -36,9 +32,24 @@ const defaultHousehold = {
   name: 'My Home',
   icon: '🏠',
   assignees: ['Anu', 'Swarna'],
+  routinePeriods: [
+    { id: 'morning', label: 'Morning', start: '06:30', end: '11:00' },
+    { id: 'midday', label: 'Midday', start: '11:00', end: '15:00' },
+    { id: 'evening', label: 'Evening', start: '15:00', end: '20:00' },
+  ],
+  offDays: { Anu: [0], Swarna: [2] },
 }
 const householdIconOptions = ['🏠', '🏡', '🏢', '🌿', '☀️', '🧡']
   .map((icon) => ({ label: icon, value: icon }))
+const weekdays = [
+  { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 }, { label: 'Wed', value: 3 },
+  { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 }, { label: 'Sun', value: 0 },
+]
+const allTimeOptions = Array.from({ length: 48 }, (_, index) => {
+  const value = `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`
+  return { label: timeLabel(value), value }
+})
+const periodEndOptions = [...allTimeOptions, { label: '12:00 am', value: '24:00' }]
 
 const weeks = ref({})
 const currentWeek = ref(null)
@@ -54,6 +65,7 @@ const newDuty = ref({ name: '', area: '' })
 const newMeal = ref({ name: '', type: 'main', image: null })
 const newAssignee = ref('')
 const householdError = ref('')
+const routineError = ref('')
 const editingOption = ref(null)
 const imageError = ref('')
 const saveState = ref('Saved')
@@ -80,6 +92,8 @@ const assigneeOptions = computed(() => [
   ...household.value.assignees.map((value) => ({ label: value, value })),
   { label: 'Shared', value: 'Shared' },
 ])
+const periods = computed(() => household.value.routinePeriods)
+const periodOptions = computed(() => periods.value.map((period) => ({ label: period.label, value: period.id })))
 const weekIsBlank = computed(() => currentWeek.value?.days.every((day) =>
   day.duties.length === 0
   && !day.notes.trim()
@@ -130,7 +144,7 @@ function buildDays(weekStart) {
   }))
 }
 
-function snapshotDuty(dutyId, period = 'morning', assignee = 'Shared', time = '') {
+function snapshotDuty(dutyId, period = periods.value[0]?.id ?? 'morning', assignee = 'Shared', time = '') {
   const source = catalog.value.duties.find((duty) => duty.id === dutyId)
   return {
     id: createId(), sourceId: dutyId, name: source?.name ?? 'New duty',
@@ -191,7 +205,10 @@ async function persistState(update) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(update),
   })
-  if (!response.ok) throw new Error('Could not save planner data.')
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error ?? 'Could not save planner data.')
+  }
 }
 
 async function copyPreviousWeek() {
@@ -247,10 +264,12 @@ function dayNumber(day) {
   return parseDate(day.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-function availabilityFor(index) {
-  if (index === 1) return 'Swarna off'
-  if (index === 6) return 'Anu off'
-  return ''
+function availabilityFor(day) {
+  const weekday = parseDate(day.date).getDay()
+  return household.value.assignees
+    .filter((assignee) => household.value.offDays[assignee]?.includes(weekday))
+    .map((assignee) => `${assignee} off`)
+    .join(' · ')
 }
 
 function dutiesFor(day, periodId) {
@@ -293,6 +312,35 @@ function addDuty(day, periodId) {
     id: createId(), sourceId: null, name: '', area: 'General',
     period: periodId, assignee: 'Shared', time: '',
   })
+}
+
+function minutesFor(time) {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+function timeLabel(value) {
+  const [hours, minutes] = value.split(':').map(Number)
+  if (hours === 24) return '12:00 am'
+  const suffix = hours < 12 ? 'am' : 'pm'
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${suffix}`
+}
+
+function periodRange(period) {
+  return `${timeLabel(period.start)}-${timeLabel(period.end)}`
+}
+
+function timeOptionsFor(periodId) {
+  const period = periods.value.find((item) => item.id === periodId)
+  if (!period) return []
+  return allTimeOptions.filter((option) =>
+    minutesFor(option.value) >= minutesFor(period.start) && minutesFor(option.value) < minutesFor(period.end),
+  )
+}
+
+function changeDutyPeriod(duty, periodId) {
+  duty.period = periodId
+  if (duty.time && !timeOptionsFor(periodId).some((option) => option.value === duty.time)) duty.time = ''
 }
 
 async function changeDuty(duty, sourceId) {
@@ -341,8 +389,9 @@ async function saveHousehold() {
     return
   }
   household.value = {
+    ...household.value,
     name,
-    icon: household.value.icon.trim() || defaultHousehold.icon,
+    icon: household.value.icon || defaultHousehold.icon,
     assignees: [...new Set(assignees)],
   }
   try {
@@ -363,6 +412,7 @@ function addAssignee() {
 function removeAssignee(name) {
   if (household.value.assignees.length === 1 || assigneeInUse(name)) return
   household.value.assignees = household.value.assignees.filter((assignee) => assignee !== name)
+  delete household.value.offDays[name]
 }
 
 function assigneeInUse(assignee) {
@@ -370,6 +420,63 @@ function assigneeInUse(assignee) {
     day.duties.some((duty) => duty.assignee === assignee)
     || mealSlots.some((slot) => day.meals[slot.id].assignee === assignee),
   ))
+}
+
+function renameAssignee(index, value) {
+  const current = household.value.assignees[index]
+  const name = value.trim()
+  if (!name || name === current || name === 'Shared' || household.value.assignees.includes(name)) return
+  household.value.assignees[index] = name
+  household.value.offDays[name] = household.value.offDays[current] ?? []
+  delete household.value.offDays[current]
+}
+
+function setOffDay(assignee, weekday, checked) {
+  const current = household.value.offDays[assignee] ?? []
+  household.value.offDays[assignee] = checked
+    ? [...new Set([...current, weekday])]
+    : current.filter((day) => day !== weekday)
+}
+
+function periodInUse(periodId) {
+  return Object.values(weeks.value).some((week) => week.days.some((day) =>
+    day.duties.some((duty) => duty.period === periodId),
+  ))
+}
+
+function addRoutinePeriod() {
+  if (household.value.routinePeriods.length === 6) return
+  const occupied = household.value.routinePeriods.map((period) => ({
+    start: minutesFor(period.start), end: minutesFor(period.end),
+  }))
+  const start = Array.from({ length: 47 }, (_, index) => index * 30)
+    .find((minute) => !occupied.some((range) => minute < range.end && range.start < minute + 30))
+  if (start === undefined) return
+  const toTime = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+  household.value.routinePeriods.push({
+    id: `period-${Date.now().toString(36)}`,
+    label: 'New period',
+    start: toTime(start),
+    end: toTime(start + 30),
+  })
+}
+
+function moveRoutinePeriod(index, amount) {
+  const target = index + amount
+  if (target < 0 || target >= household.value.routinePeriods.length) return
+  const [period] = household.value.routinePeriods.splice(index, 1)
+  household.value.routinePeriods.splice(target, 0, period)
+}
+
+function removeRoutinePeriod(index) {
+  const period = household.value.routinePeriods[index]
+  if (household.value.routinePeriods.length === 2 || periodInUse(period.id)) return
+  household.value.routinePeriods.splice(index, 1)
+}
+
+async function saveRoutine() {
+  await saveHousehold()
+  routineError.value = householdError.value
 }
 
 async function addDutyOption() {
@@ -501,7 +608,7 @@ onMounted(async () => {
             <div>
               <p class="eyebrow">Daily plan</p>
               <h2>{{ dayName(selectedDay) }}, {{ dayNumber(selectedDay) }}</h2>
-              <span v-if="availabilityFor(selectedDayIndex)" class="availability">{{ availabilityFor(selectedDayIndex) }}</span>
+              <span v-if="availabilityFor(selectedDay)" class="availability">{{ availabilityFor(selectedDay) }}</span>
             </div>
           </div>
 
@@ -509,13 +616,14 @@ onMounted(async () => {
             <div class="duty-editor">
               <section v-for="period in periods" :key="period.id" class="period-section">
                 <div class="section-heading">
-                  <div><p class="period-time"><Clock3 :size="15" /> {{ period.time }}</p><h3>{{ period.label }}</h3></div>
+                  <div><p class="period-time"><Clock3 :size="15" /> {{ periodRange(period) }}</p><h3>{{ period.label }}</h3></div>
                   <Button class="no-print" quaternary size="small" @click="addDuty(selectedDay, period.id)"><CirclePlus :size="17" /><span>Add duty</span></Button>
                 </div>
                 <div v-if="!dutiesFor(selectedDay, period.id).length" class="empty-line">No duties planned</div>
                 <article v-for="duty in dutiesFor(selectedDay, period.id)" :key="duty.id" class="duty-row" :data-assignee="duty.assignee.toLowerCase()">
                   <Select class="duty-select" :value="duty.sourceId" :options="dutyOptions" filterable tag aria-label="Duty or new duty" @update:value="changeDuty(duty, $event)" />
-                  <InputText v-model:value="duty.time" placeholder="Optional time" aria-label="Optional exact time" />
+                  <Select :value="duty.period" :options="periodOptions" aria-label="Routine Period" @update:value="changeDutyPeriod(duty, $event)" />
+                  <Select v-model:value="duty.time" :options="timeOptionsFor(duty.period)" clearable placeholder="Optional time" aria-label="Optional exact time" />
                   <Select v-model:value="duty.assignee" :options="assigneeOptions" aria-label="Assigned to" />
                   <Button class="no-print" quaternary circle type="error" aria-label="Remove duty" @click="removeDuty(selectedDay, duty.id)"><Trash2 :size="17" /></Button>
                 </article>
@@ -544,9 +652,9 @@ onMounted(async () => {
             <div class="week-board">
               <button v-for="(day, index) in currentWeek.days" :key="day.date" class="day-column" type="button" @click="selectedDayIndex = index">
                 <header class="day-heading"><div><span>{{ dayNumber(day) }}</span><h3>{{ dayName(day) }}</h3></div><ChevronRight class="open-day no-print" :size="18" /></header>
-                <p v-if="availabilityFor(index)" class="availability">{{ availabilityFor(index) }}</p>
+                <p v-if="availabilityFor(day)" class="availability">{{ availabilityFor(day) }}</p>
                 <div v-for="period in periods" :key="period.id" class="overview-period">
-                  <p class="overview-time">{{ period.time }}</p>
+                  <p class="overview-time">{{ periodRange(period) }}</p>
                   <div v-if="!dutiesFor(day, period.id).length" class="empty-slot">Open</div>
                   <div v-for="duty in dutiesFor(day, period.id)" :key="duty.id" class="duty-chip" :data-assignee="duty.assignee.toLowerCase()"><span>{{ duty.name }}</span><small>{{ duty.time || duty.assignee }}</small></div>
                 </div>
@@ -592,7 +700,7 @@ onMounted(async () => {
           <div class="assignee-fields">
             <span>Assignees</span>
             <div v-for="(assignee, index) in household.assignees" :key="`${assignee}-${index}`" class="assignee-row">
-              <InputText v-model:value="household.assignees[index]" :disabled="assigneeInUse(assignee)" :title="assigneeInUse(assignee) ? 'Move planned work before renaming this Assignee' : undefined" :aria-label="`${assignee} name`" />
+              <InputText :value="assignee" :disabled="assigneeInUse(assignee)" :title="assigneeInUse(assignee) ? 'Move planned work before renaming this Assignee' : undefined" :aria-label="`${assignee} name`" @update:value="renameAssignee(index, $event)" />
               <Button quaternary circle type="error" :disabled="household.assignees.length === 1 || assigneeInUse(assignee)" :title="assigneeInUse(assignee) ? 'Move planned work before removing this Assignee' : undefined" :aria-label="`Remove ${assignee}`" @click="removeAssignee(assignee)"><X :size="16" /></Button>
             </div>
             <div class="add-assignee"><InputText v-model:value="newAssignee" placeholder="Add a person" aria-label="New Assignee name" @keyup.enter.prevent="addAssignee" /><Button secondary @click="addAssignee"><CirclePlus :size="17" /> Add</Button></div>
@@ -602,8 +710,24 @@ onMounted(async () => {
         </form>
       </template>
       <template v-else-if="optionMode === 'routine'">
-        <div class="routine-preview">
-          <div v-for="period in periods" :key="period.id"><strong>{{ period.label }}</strong><span>{{ period.time }}</span></div>
+        <div class="routine-editor">
+          <div class="section-heading"><div><p class="period-time"><Clock3 :size="15" /> Daily routine</p><h3>Routine periods</h3></div><Button secondary :disabled="household.routinePeriods.length === 6" @click="addRoutinePeriod"><CirclePlus :size="17" /> Add period</Button></div>
+          <article v-for="(period, index) in household.routinePeriods" :key="period.id" class="routine-row">
+            <InputText v-model:value="period.label" aria-label="Routine Period name" />
+            <Select v-model:value="period.start" :options="allTimeOptions" aria-label="Routine Period start time" />
+            <Select v-model:value="period.end" :options="periodEndOptions" aria-label="Routine Period end time" />
+            <div class="row-actions">
+              <Button quaternary circle :disabled="index === 0" aria-label="Move Routine Period earlier" @click="moveRoutinePeriod(index, -1)"><ArrowUp :size="16" /></Button>
+              <Button quaternary circle :disabled="index === household.routinePeriods.length - 1" aria-label="Move Routine Period later" @click="moveRoutinePeriod(index, 1)"><ArrowDown :size="16" /></Button>
+              <Button quaternary circle type="error" :disabled="household.routinePeriods.length === 2 || periodInUse(period.id)" :title="periodInUse(period.id) ? 'Move planned Duties before removing this Routine Period' : undefined" aria-label="Remove Routine Period" @click="removeRoutinePeriod(index)"><Trash2 :size="16" /></Button>
+            </div>
+          </article>
+          <div class="off-day-fields">
+            <p>Days off</p>
+            <div v-for="assignee in household.assignees" :key="assignee" class="off-day-row"><strong>{{ assignee }}</strong><Checkbox v-for="weekday in weekdays" :key="weekday.value" :checked="household.offDays[assignee]?.includes(weekday.value)" @update:checked="setOffDay(assignee, weekday.value, $event)">{{ weekday.label }}</Checkbox></div>
+          </div>
+          <p v-if="routineError" class="form-error">{{ routineError }}</p>
+          <div class="modal-actions"><Button type="primary" @click="saveRoutine">Save routine</Button></div>
         </div>
       </template>
       <template v-else-if="optionMode === 'duties'">
