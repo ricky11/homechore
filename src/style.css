@@ -63,6 +63,7 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
 .duty-chip[data-assignee='anu'] { border-color: var(--yellow); background: #fff6dc; }
 .duty-chip[data-assignee='swarna'] { border-color: var(--blue); background: #eaf4fa; }
 .duty-chip span { font-size: 0.78rem; line-height: 1.25; font-weight: 700; }
+.duty-emoji { display: inline-block; margin-right: 4px; font-size: 1rem; font-weight: 400; }
 .duty-chip small { color: var(--muted); font-size: 0.66rem; }
 .meal-summary { padding: 12px; background: #fff9e9; }
 .meal-summary > p { display: flex; align-items: center; gap: 5px; margin: 0 0 8px; color: #7b5b12; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
@@ -88,6 +89,8 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
 .duty-row[data-assignee='anu'] { border-color: var(--yellow); }
 .duty-row[data-assignee='swarna'] { border-color: var(--blue); }
 .duty-select { min-width: 0; }
+.duty-choice { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.duty-choice .duty-select { flex: 1 1 auto; }
 .empty-line { padding: 13px; border: 1px dashed #cdd4cf; border-radius: 6px; color: #939d98; font-size: 0.82rem; text-align: center; }
 .meal-editor { padding: 20px; }
 .meal-slot { padding: 15px 0; border-top: 1px solid var(--line); }
@@ -116,6 +119,7 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
 .off-day-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .off-day-row > strong { min-width: 85px; font-size: 0.82rem; }
 .option-form { display: grid; grid-template-columns: 1.2fr 0.8fr auto; gap: 8px; margin-bottom: 16px; }
+.duty-option-form { grid-template-columns: 1.2fr 0.8fr 105px auto; }
 .meal-option-form { grid-template-columns: minmax(150px, 1fr) 130px auto auto auto auto; align-items: center; }
 .image-picker { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; border: 1px solid #d9d9df; border-radius: 4px; color: var(--ink); background: white; cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
 .image-picker:hover { border-color: var(--green); color: var(--green); }
@@ -149,7 +153,7 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
   .detail-layout { grid-template-columns: 1fr; }
   .detail-heading { align-items: flex-start; }
   .duty-row { grid-template-columns: 1fr 1fr auto; }
-  .duty-select { grid-column: 1 / -1; }
+  .duty-choice { grid-column: 1 / -1; }
 }
 
 @media (max-width: 560px) {

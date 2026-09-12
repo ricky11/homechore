@@ -45,6 +45,21 @@ const weekdays = [
   { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 }, { label: 'Wed', value: 3 },
   { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 }, { label: 'Sun', value: 0 },
 ]
+const dutyEmojiOptions = ['🧹', '🧺', '🛏️', '🍳', '🧽', '🪟', '🚗', '🗑️', '🛒', '🌿', '👶', '📌']
+  .map((emoji) => ({ label: emoji, value: emoji }))
+const dutyEmojiSuggestions = [
+  { words: ['sheet', 'bed', 'pillow'], emoji: '🛏️' },
+  { words: ['laundry', 'wash', 'fold', 'clothes'], emoji: '🧺' },
+  { words: ['cook', 'meal', 'kitchen', 'dish'], emoji: '🍳' },
+  { words: ['clean', 'sweep', 'mop', 'dust'], emoji: '🧹' },
+  { words: ['bathroom', 'toilet'], emoji: '🧽' },
+  { words: ['window'], emoji: '🪟' },
+  { words: ['car'], emoji: '🚗' },
+  { words: ['trash', 'recycling', 'rubbish'], emoji: '🗑️' },
+  { words: ['grocery', 'shopping'], emoji: '🛒' },
+  { words: ['garden', 'plant'], emoji: '🌿' },
+  { words: ['kid', 'child', 'school'], emoji: '👶' },
+]
 const allTimeOptions = Array.from({ length: 48 }, (_, index) => {
   const value = `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`
   return { label: timeLabel(value), value }
@@ -61,7 +76,7 @@ const serverError = ref('')
 const clearDialogOpen = ref(false)
 const optionsDialogOpen = ref(false)
 const optionMode = ref('household')
-const newDuty = ref({ name: '', area: '' })
+const newDuty = ref({ name: '', area: '', emoji: '' })
 const newMeal = ref({ name: '', type: 'main', image: null })
 const newAssignee = ref('')
 const householdError = ref('')
@@ -86,7 +101,7 @@ const weekLabel = computed(() => {
   return `${first} – ${last}`
 })
 const dutyOptions = computed(() =>
-  catalog.value.duties.map((duty) => ({ label: `${duty.name} · ${duty.area}`, value: duty.id })),
+  catalog.value.duties.map((duty) => ({ label: `${duty.emoji || suggestedDutyEmoji(duty.name)} ${duty.name} · ${duty.area}`, value: duty.id })),
 )
 const assigneeOptions = computed(() => [
   ...household.value.assignees.map((value) => ({ label: value, value })),
@@ -148,7 +163,7 @@ function snapshotDuty(dutyId, period = periods.value[0]?.id ?? 'morning', assign
   const source = catalog.value.duties.find((duty) => duty.id === dutyId)
   return {
     id: createId(), sourceId: dutyId, name: source?.name ?? 'New duty',
-    area: source?.area ?? 'General', period, assignee, time,
+    area: source?.area ?? 'General', emoji: source?.emoji ?? '', period, assignee, time,
   }
 }
 
@@ -343,15 +358,29 @@ function changeDutyPeriod(duty, periodId) {
   if (duty.time && !timeOptionsFor(periodId).some((option) => option.value === duty.time)) duty.time = ''
 }
 
+function suggestedDutyEmoji(name) {
+  const normalizedName = name.toLowerCase()
+  return dutyEmojiSuggestions.find(({ words }) => words.some((word) => normalizedName.includes(word)))?.emoji ?? '📌'
+}
+
+function dutyEmoji(duty) {
+  return catalog.value.duties.find((option) => option.id === duty.sourceId)?.emoji
+    || duty.emoji
+    || suggestedDutyEmoji(duty.name)
+}
+
 async function changeDuty(duty, sourceId) {
   let source = catalog.value.duties.find((item) => item.id === sourceId)
   if (!source && typeof sourceId === 'string' && sourceId.trim()) {
-    source = { id: slugify(sourceId), name: sourceId.trim(), area: 'General' }
+    source = {
+      id: slugify(sourceId), name: sourceId.trim(), area: 'General',
+      emoji: suggestedDutyEmoji(sourceId),
+    }
     catalog.value.duties.push(source)
     await saveCatalog()
   }
   if (!source) return
-  Object.assign(duty, { sourceId: source.id, name: source.name, area: source.area })
+  Object.assign(duty, { sourceId: source.id, name: source.name, area: source.area, emoji: source.emoji ?? '' })
 }
 
 function removeDuty(day, dutyId) {
@@ -481,8 +510,13 @@ async function saveRoutine() {
 
 async function addDutyOption() {
   if (!newDuty.value.name.trim() || !newDuty.value.area.trim()) return
-  catalog.value.duties.push({ id: slugify(newDuty.value.name), name: newDuty.value.name.trim(), area: newDuty.value.area.trim() })
-  newDuty.value = { name: '', area: '' }
+  catalog.value.duties.push({
+    id: slugify(newDuty.value.name),
+    name: newDuty.value.name.trim(),
+    area: newDuty.value.area.trim(),
+    emoji: newDuty.value.emoji || suggestedDutyEmoji(newDuty.value.name),
+  })
+  newDuty.value = { name: '', area: '', emoji: '' }
   await saveCatalog()
 }
 
@@ -535,7 +569,10 @@ async function commitOptionEdit() {
   const target = collection.find((item) => item.id === edit.originalId)
   if (target) {
     target.name = edit.name.trim()
-    if (edit.kind === 'duty') target.area = edit.area.trim() || 'General'
+    if (edit.kind === 'duty') {
+      target.area = edit.area.trim() || 'General'
+      target.emoji = edit.emoji || suggestedDutyEmoji(edit.name)
+    }
     else {
       target.type = edit.type
       target.image = edit.image ?? null
@@ -621,7 +658,7 @@ onMounted(async () => {
                 </div>
                 <div v-if="!dutiesFor(selectedDay, period.id).length" class="empty-line">No duties planned</div>
                 <article v-for="duty in dutiesFor(selectedDay, period.id)" :key="duty.id" class="duty-row" :data-assignee="duty.assignee.toLowerCase()">
-                  <Select class="duty-select" :value="duty.sourceId" :options="dutyOptions" filterable tag aria-label="Duty or new duty" @update:value="changeDuty(duty, $event)" />
+                  <div class="duty-choice"><span class="duty-emoji" aria-hidden="true">{{ dutyEmoji(duty) }}</span><Select class="duty-select" :value="duty.sourceId" :options="dutyOptions" filterable tag aria-label="Duty or new duty" @update:value="changeDuty(duty, $event)" /></div>
                   <Select :value="duty.period" :options="periodOptions" aria-label="Routine Period" @update:value="changeDutyPeriod(duty, $event)" />
                   <Select v-model:value="duty.time" :options="timeOptionsFor(duty.period)" clearable placeholder="Optional time" aria-label="Optional exact time" />
                   <Select v-model:value="duty.assignee" :options="assigneeOptions" aria-label="Assigned to" />
@@ -656,7 +693,7 @@ onMounted(async () => {
                 <div v-for="period in periods" :key="period.id" class="overview-period">
                   <p class="overview-time">{{ periodRange(period) }}</p>
                   <div v-if="!dutiesFor(day, period.id).length" class="empty-slot">Open</div>
-                  <div v-for="duty in dutiesFor(day, period.id)" :key="duty.id" class="duty-chip" :data-assignee="duty.assignee.toLowerCase()"><span>{{ duty.name }}</span><small>{{ duty.time || duty.assignee }}</small></div>
+                  <div v-for="duty in dutiesFor(day, period.id)" :key="duty.id" class="duty-chip" :data-assignee="duty.assignee.toLowerCase()"><span><b class="duty-emoji" aria-hidden="true">{{ dutyEmoji(duty) }}</b>{{ duty.name }}</span><small>{{ duty.time || duty.assignee }}</small></div>
                 </div>
                 <div v-if="mealSummary(day).length" class="meal-summary">
                   <p><CookingPot :size="14" /> Meals</p>
@@ -731,11 +768,11 @@ onMounted(async () => {
         </div>
       </template>
       <template v-else-if="optionMode === 'duties'">
-        <form class="option-form" @submit.prevent="addDutyOption"><InputText v-model:value="newDuty.name" placeholder="Duty name" aria-label="Duty name" /><InputText v-model:value="newDuty.area" placeholder="Area, e.g. Kitchen" aria-label="Duty area" /><Button attr-type="submit"><CirclePlus :size="18" /> Add</Button></form>
+        <form class="option-form duty-option-form" @submit.prevent="addDutyOption"><InputText v-model:value="newDuty.name" placeholder="Duty name" aria-label="Duty name" /><InputText v-model:value="newDuty.area" placeholder="Area, e.g. Kitchen" aria-label="Duty area" /><Select v-model:value="newDuty.emoji" :options="dutyEmojiOptions" clearable placeholder="Suggested" aria-label="Duty emoji" /><Button attr-type="submit"><CirclePlus :size="18" /> Add</Button></form>
         <div class="option-list">
           <div v-for="duty in catalog.duties" :key="duty.id" class="option-row">
-            <template v-if="editingOption?.kind === 'duty' && editingOption.originalId === duty.id"><InputText v-model:value="editingOption.name" /><InputText v-model:value="editingOption.area" /><Button size="small" @click="commitOptionEdit">Save</Button></template>
-            <template v-else><div><strong>{{ duty.name }}</strong><span>{{ duty.area }}</span></div><div class="row-actions"><Button quaternary circle aria-label="Rename duty" @click="startEditOption('duty', duty)"><Pencil :size="16" /></Button><Button quaternary circle type="error" aria-label="Delete duty option" @click="deleteOption('duty', duty.id)"><Trash2 :size="16" /></Button></div></template>
+            <template v-if="editingOption?.kind === 'duty' && editingOption.originalId === duty.id"><InputText v-model:value="editingOption.name" /><InputText v-model:value="editingOption.area" /><Select v-model:value="editingOption.emoji" :options="dutyEmojiOptions" clearable aria-label="Duty emoji" /><Button size="small" @click="commitOptionEdit">Save</Button></template>
+            <template v-else><div class="option-identity"><span class="duty-emoji" aria-hidden="true">{{ duty.emoji || suggestedDutyEmoji(duty.name) }}</span><div><strong>{{ duty.name }}</strong><span>{{ duty.area }}</span></div></div><div class="row-actions"><Button quaternary circle aria-label="Rename duty" @click="startEditOption('duty', duty)"><Pencil :size="16" /></Button><Button quaternary circle type="error" aria-label="Delete duty option" @click="deleteOption('duty', duty.id)"><Trash2 :size="16" /></Button></div></template>
           </div>
         </div>
       </template>
