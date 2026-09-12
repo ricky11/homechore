@@ -4,9 +4,9 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The local server advertises and answers mDNS queries for `chores.local` on the trusted network.
-- [ ] The server continues to listen on port 8787 and prints localhost and discovered LAN URLs.
-- [ ] A failure to use mDNS does not prevent normal IP-based LAN access.
-- [ ] The server can start and stop cleanly with the mDNS responder active.
+- [x] The local server advertises and answers mDNS queries for `chores.local` on the trusted network.
+- [x] The server continues to listen on port 8787 and prints localhost and discovered LAN URLs.
+- [x] A failure to use mDNS does not prevent normal IP-based LAN access.
+- [x] The server can start and stop cleanly with the mDNS responder active.
