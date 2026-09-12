@@ -306,11 +306,13 @@ function writeDailyPdf(pdf, day) {
   const pageHeight = pdf.internal.pageSize.getHeight()
   const fontSize = 8
   const lineHeight = fontSize * 0.52
+  const pageBottom = pageHeight - 12
   let position = 27
+  let pageFull = false
   writePdfHeader(pdf, 'Daily plan', `${dayName(day)}, ${dayNumber(day)}`)
   position = writePdfSettings(pdf, position, pageWidth - 24, 7)
   const availability = availabilityFor(day)
-  if (availability) {
+    if (availability) {
     pdf.setTextColor(138, 53, 40)
     pdf.setFontSize(7)
     pdf.text(availability, 12, position)
@@ -319,15 +321,30 @@ function writeDailyPdf(pdf, day) {
   }
 
   const writeLines = (text, indent = 12, emoji = '') => {
+    if (pageFull) return
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(fontSize)
     const lines = pdf.splitTextToSize(text, pageWidth - indent - 12)
+    const lineCapacity = Math.floor((pageBottom - position) / lineHeight)
+    if (lineCapacity < 1) {
+      pageFull = true
+      return
+    }
+    const visibleLines = lines.slice(0, lineCapacity)
+    if (visibleLines.length < lines.length) {
+      visibleLines[visibleLines.length - 1] = `${visibleLines[visibleLines.length - 1].replace(/\s+$/, '')}...`
+      pageFull = true
+    }
     if (emoji) drawPdfEmoji(pdf, emoji, indent, position - 3.6, 4)
-    pdf.text(lines, indent + (emoji ? 6 : 0), position)
-    position += lines.length * lineHeight + 1.5
+    pdf.text(visibleLines, indent + (emoji ? 6 : 0), position)
+    position += visibleLines.length * lineHeight + 1.5
   }
 
   for (const period of periods.value) {
+    if (pageFull || position + 5 > pageBottom) {
+      pageFull = true
+      break
+    }
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(38, 116, 90)
     pdf.setFontSize(9)
@@ -343,7 +360,7 @@ function writeDailyPdf(pdf, day) {
   }
 
   const meals = mealSummary(day)
-  if (meals.length) {
+  if (meals.length && !pageFull && position + 5 <= pageBottom) {
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(123, 91, 18)
     pdf.setFontSize(9)
@@ -352,14 +369,14 @@ function writeDailyPdf(pdf, day) {
     position += 5
     for (const meal of meals) writeLines(`${meal.label}: ${meal.value}`, 18)
   }
-  if (day.notes.trim()) {
+  if (day.notes.trim() && !pageFull && position + 5 <= pageBottom) {
     pdf.setFont('helvetica', 'bold')
     pdf.setFontSize(9)
     pdf.text('Notes', 12, position)
     position += 5
     writeLines(day.notes, 18)
   }
-  if (position > pageHeight - 10) message.warning('This daily plan has more detail than fits comfortably on one page.')
+  if (pageFull) message.warning('Some detail was shortened to keep this daily plan on one page.')
 }
 
 function writeWeeklyPdf(pdf) {
@@ -369,11 +386,11 @@ function writeWeeklyPdf(pdf) {
   const gap = 3
   const weekdayWidth = (pageWidth - (margin * 2) - (gap * 4)) / 5
   const weekendWidth = (pageWidth - (margin * 2) - gap) / 2
-  const topY = 39
-  const topHeight = 116
+  const topY = 42
+  const topHeight = 113
   const bottomY = topY + topHeight + gap
   writePdfHeader(pdf, 'Weekly plan', weekLabel.value)
-  writePdfSettings(pdf, 25, pageWidth - 24, 5.5)
+  writePdfSettings(pdf, 25, pageWidth - 24, 6)
 
   currentWeek.value.days.forEach((day, index) => {
     const weekend = index > 4
@@ -381,50 +398,75 @@ function writeWeeklyPdf(pdf) {
     const x = weekend ? margin + (index - 5) * (weekendWidth + gap) : margin + index * (weekdayWidth + gap)
     const panelY = weekend ? bottomY : topY
     const panelHeight = weekend ? pageHeight - bottomY - 7 : topHeight
-    let position = panelY + 6
-    const writePanelText = (text, size = weekend ? 8 : 7.4, indent = 0, emoji = '') => {
+    const panelBottom = panelY + panelHeight - 4
+    let position = panelY + 14
+    let panelFull = false
+    const writePanelText = (text, size = weekend ? 10.5 : 9.5, indent = 0, emoji = '') => {
+      if (panelFull) return
       pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(size)
       const lines = pdf.splitTextToSize(text, panelWidth - indent - (emoji ? 5 : 0))
-      if (emoji) drawPdfEmoji(pdf, emoji, x + indent, position - 3.2, 4)
-      pdf.text(lines, x + indent + (emoji ? 4 : 0), position)
-      position += lines.length * (size * 0.5) + 1.5
+      const lineHeight = size * 0.5
+      const lineCapacity = Math.floor((panelBottom - position) / lineHeight)
+      if (lineCapacity < 1) {
+        panelFull = true
+        return
+      }
+      const visibleLines = lines.slice(0, lineCapacity)
+      if (visibleLines.length < lines.length) {
+        visibleLines[visibleLines.length - 1] = `${visibleLines[visibleLines.length - 1].replace(/\s+$/, '')}...`
+        panelFull = true
+      }
+      if (emoji) drawPdfEmoji(pdf, emoji, x + indent, position - 3.8, 4.8)
+      pdf.text(visibleLines, x + indent + (emoji ? 5.5 : 0), position)
+      position += visibleLines.length * lineHeight + 2
+    }
+    const writePanelHeading = (label, fill, text) => {
+      const headingHeight = weekend ? 5.5 : 4.8
+      if (panelFull || position + headingHeight > panelBottom) {
+        panelFull = true
+        return
+      }
+      pdf.setFillColor(...fill)
+      pdf.rect(x + 2, position - 3.6, panelWidth - 4, weekend ? 5 : 4.4, 'F')
+      pdf.setFont('helvetica', 'bold')
+      pdf.setTextColor(...text)
+      pdf.setFontSize(weekend ? 10 : 9)
+      const heading = pdf.splitTextToSize(label, panelWidth - 7)[0]
+      pdf.text(heading.length < label.length ? `${heading.replace(/\s+$/, '')}...` : heading, x + 3, position)
+      pdf.setTextColor(38, 51, 47)
+      position += headingHeight
     }
     pdf.setFillColor(237, 246, 241)
     pdf.rect(x, panelY, panelWidth, panelHeight, 'F')
+    pdf.setFillColor(38, 116, 90)
+    pdf.rect(x, panelY, panelWidth, 11, 'F')
     pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(weekend ? 11 : 9)
-    pdf.text(dayName(day), x + 2, position)
-    position += weekend ? 5 : 4
+    pdf.setTextColor(255, 255, 255)
+    pdf.setFontSize(weekend ? 16 : 13)
+    pdf.text(dayName(day), x + 3, panelY + 5.5)
     pdf.setFont('helvetica', 'normal')
-    writePanelText(dayNumber(day), weekend ? 8 : 7.4, 2)
+    pdf.setFontSize(weekend ? 8 : 7)
+    pdf.text(dayNumber(day), x + 3, panelY + 9.5)
+    pdf.setTextColor(38, 51, 47)
+    pdf.setFont('helvetica', 'normal')
     const availability = availabilityFor(day)
-    if (availability) writePanelText(availability, weekend ? 7.5 : 6.8, 2)
+    if (availability) writePanelText(availability, weekend ? 9.5 : 8.5, 3)
     for (const period of periods.value) {
-      pdf.setFont('helvetica', 'bold')
-      pdf.setTextColor(38, 116, 90)
-      pdf.setFontSize(weekend ? 8 : 7)
-      pdf.text(`${period.label} ${periodRange(period)}`, x + 2, position)
-      pdf.setTextColor(38, 51, 47)
-      position += weekend ? 4.5 : 3.5
+      writePanelHeading(`${period.label} | ${periodRange(period)}`, [215, 234, 225], [38, 116, 90])
+      if (panelFull) break
       const duties = dutiesFor(day, period.id)
-      if (!duties.length) writePanelText('Open', weekend ? 7.5 : 6.8, 3)
-      for (const duty of duties) writePanelText(`${duty.time ? `${timeLabel(duty.time)} ` : ''}${duty.name} (${duty.assignee})`, weekend ? 7.8 : 7, 3, dutyEmoji(duty))
+      if (!duties.length) writePanelText('Open', weekend ? 9.5 : 8.5, 4)
+      for (const duty of duties) writePanelText(`${duty.time ? `${timeLabel(duty.time)} ` : ''}${duty.name} (${duty.assignee})`, weekend ? 10.2 : 9.2, 4, dutyEmoji(duty))
     }
     const meals = mealSummary(day)
-    if (meals.length) {
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(weekend ? 8 : 7)
-      pdf.text('Meals', x + 2, position)
-      position += weekend ? 4.5 : 3.5
-      for (const meal of meals) writePanelText(`${meal.label}: ${meal.value}`, weekend ? 7.5 : 6.8, 3)
+    if (meals.length && !panelFull) {
+      writePanelHeading('Meals', [255, 244, 207], [123, 91, 18])
+      for (const meal of meals) writePanelText(`${meal.label}: ${meal.value}`, weekend ? 9.5 : 8.5, 4)
     }
-    if (day.notes.trim()) {
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(weekend ? 8 : 7)
-      pdf.text('Notes', x + 2, position)
-      position += weekend ? 4.5 : 3.5
-      writePanelText(day.notes, weekend ? 7.5 : 6.8, 3)
+    if (day.notes.trim() && !panelFull) {
+      writePanelHeading('Notes', [232, 237, 234], [38, 51, 47])
+      writePanelText(day.notes, weekend ? 9.5 : 8.5, 4)
     }
   })
 }
