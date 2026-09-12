@@ -201,3 +201,27 @@ The LAN address may change when the network changes.
 - Add Google Calendar events to the detailed day view.
 - Consider an in-app backup/download action for the SQLite state.
 - Consider a hosted backend only if access outside the home network becomes necessary.
+
+## Stage 2 Checklist
+
+ - [x] Rename the product to HomeChore and make the household name and icon configurable with sensible defaults.
+- [ ] Rewrite the README for nontechnical local hosting, including Node.js setup, private-network guidance, Windows Firewall, and `http://chores.local:8787/`.
+- [ ] Advertise `chores.local` through mDNS while retaining port 8787 as the default local server port.
+- [ ] Store processed WebP meal images in `data/uploads/` and store only their filenames in SQLite.
+- [ ] Limit source meal images to 5 MB and remove any existing embedded base64 images rather than migrating them.
+- [ ] Align the meal management row so its padded image, details, and edit/delete actions are on one row.
+- [ ] Add suggested and manually selectable emoji for duties without external AI or network calls.
+- [ ] Add Household settings for identity, Assignees, off-days, and Routine Periods in a single Manage dialog.
+- [ ] Keep three sensible Routine Period defaults while allowing users to rename and edit 2-6 non-overlapping periods.
+- [ ] Replace free-text optional duty times with 30-minute choices within the selected Routine Period.
+- [ ] Prevent a Routine Period from being removed while Duties still use it.
+- [ ] Add dedicated Daily and Weekly downloadable PDF exports with `jsPDF`, retaining browser Print.
+
+## Deferred Work
+
+- [ ] In-app backup/download and restore.
+- [ ] Start HomeChore automatically after host restart.
+- [ ] Progressive Web App support.
+- [ ] Cloud hosting, accounts, remote access, and professional service features.
+- [ ] Advanced port-80 and reverse-proxy setup.
+- [ ] Recurring duty templates, helper-focused Today view, missed-duty notes, multilingual labels, meal-derived shopping list, and QR-code access.

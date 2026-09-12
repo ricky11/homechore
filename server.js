@@ -10,6 +10,11 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 const dataDirectory = fileURLToPath(new URL('./data/', import.meta.url))
 const databasePath = fileURLToPath(new URL('./data/homechore.db', import.meta.url))
 const seed = JSON.parse(readFileSync(new URL('./src/data/seed.json', import.meta.url), 'utf8'))
+const defaultHousehold = {
+  name: 'My Home',
+  icon: '🏠',
+  assignees: ['Anu', 'Swarna'],
+}
 
 mkdirSync(dataDirectory, { recursive: true })
 
@@ -23,7 +28,7 @@ database.exec(`
   );
 `)
 
-const initialState = JSON.stringify({ weeks: {}, catalog: seed })
+const initialState = JSON.stringify({ weeks: {}, catalog: seed, household: defaultHousehold })
 database.prepare(`
   INSERT OR IGNORE INTO planner_state (id, state_json, updated_at)
   VALUES (1, ?, datetime('now'))
@@ -36,8 +41,23 @@ const writeStateStatement = database.prepare(`
   WHERE id = 1
 `)
 
+function normalizeHousehold(value) {
+  if (!value || typeof value !== 'object') return null
+  const name = typeof value.name === 'string' ? value.name.trim() : ''
+  const icon = typeof value.icon === 'string' ? value.icon.trim() : ''
+  const assignees = Array.isArray(value.assignees)
+    ? value.assignees.map((assignee) => typeof assignee === 'string' ? assignee.trim() : '').filter(Boolean)
+    : []
+  if (!name || !icon || !assignees.length || assignees.includes('Shared') || new Set(assignees).size !== assignees.length) {
+    return null
+  }
+  return { name, icon, assignees }
+}
+
 function readState() {
-  return JSON.parse(readStateStatement.get().state_json)
+  const state = JSON.parse(readStateStatement.get().state_json)
+  state.household = normalizeHousehold(state.household) ?? defaultHousehold
+  return state
 }
 
 const app = new Hono()
@@ -54,6 +74,11 @@ app.put('/api/state', async (context) => {
   if (update.catalog?.duties && update.catalog?.meals) {
     state.catalog = update.catalog
   }
+  if (update.household !== undefined) {
+    const household = normalizeHousehold(update.household)
+    if (!household) return context.json({ error: 'A Household needs a name, icon, and unique Assignees.' }, 400)
+    state.household = household
+  }
 
   writeStateStatement.run(JSON.stringify(state))
   return context.json({ saved: true })
@@ -64,7 +89,7 @@ app.get('*', serveStatic({ path: `${root}/dist/index.html` }))
 
 const port = Number(process.env.PORT ?? 8787)
 const server = serve({ fetch: app.fetch, hostname: '0.0.0.0', port }, () => {
-  console.log(`Fairmont Home server`)
+  console.log(`HomeChore server`)
   console.log(`  Local:   http://localhost:${port}/`)
 
   const addresses = Object.values(networkInterfaces())

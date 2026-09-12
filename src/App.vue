@@ -2,8 +2,8 @@
 import { computed, h, nextTick, onMounted, ref, watch } from 'vue'
 import {
   ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, CirclePlus, Clock3, Copy,
-  CookingPot, ImagePlus, ListPlus, NotebookPen, Pencil, Printer, RotateCcw,
-  Settings2, Sparkles, Trash2, X,
+  CookingPot, House, ImagePlus, ListPlus, NotebookPen, Pencil, Printer, RotateCcw,
+  Settings2, Trash2, X,
 } from '@lucide/vue'
 import {
   NButton as Button,
@@ -32,20 +32,28 @@ const mealParts = [
   { id: 'main', label: 'Main' },
   { id: 'side', label: 'Side' },
 ]
-const assignees = ['Anu', 'Swarna', 'Shared']
-const assigneeOptions = assignees.map((value) => ({ label: value, value }))
+const defaultHousehold = {
+  name: 'My Home',
+  icon: '🏠',
+  assignees: ['Anu', 'Swarna'],
+}
+const householdIconOptions = ['🏠', '🏡', '🏢', '🌿', '☀️', '🧡']
+  .map((icon) => ({ label: icon, value: icon }))
 
 const weeks = ref({})
 const currentWeek = ref(null)
 const catalog = ref({ duties: [], meals: [] })
+const household = ref({ ...defaultHousehold })
 const selectedDayIndex = ref(null)
 const loading = ref(true)
 const serverError = ref('')
 const clearDialogOpen = ref(false)
 const optionsDialogOpen = ref(false)
-const optionMode = ref('duties')
+const optionMode = ref('household')
 const newDuty = ref({ name: '', area: '' })
 const newMeal = ref({ name: '', type: 'main', image: null })
+const newAssignee = ref('')
+const householdError = ref('')
 const editingOption = ref(null)
 const imageError = ref('')
 const saveState = ref('Saved')
@@ -68,6 +76,10 @@ const weekLabel = computed(() => {
 const dutyOptions = computed(() =>
   catalog.value.duties.map((duty) => ({ label: `${duty.name} · ${duty.area}`, value: duty.id })),
 )
+const assigneeOptions = computed(() => [
+  ...household.value.assignees.map((value) => ({ label: value, value })),
+  { label: 'Shared', value: 'Shared' },
+])
 const weekIsBlank = computed(() => currentWeek.value?.days.every((day) =>
   day.duties.length === 0
   && !day.notes.trim()
@@ -161,6 +173,10 @@ async function fetchSharedState() {
   const state = await response.json()
   weeks.value = state.weeks ?? {}
   catalog.value = state.catalog ?? cloneData(seed)
+  household.value = { ...defaultHousehold, ...state.household }
+  if (!Array.isArray(household.value.assignees) || !household.value.assignees.length) {
+    household.value.assignees = [...defaultHousehold.assignees]
+  }
 }
 
 async function saveWeek(week) {
@@ -315,6 +331,47 @@ async function saveCatalog() {
   await persistState({ catalog: cloneData(catalog.value) })
 }
 
+async function saveHousehold() {
+  const name = household.value.name.trim()
+  const assignees = household.value.assignees
+    .map((assignee) => assignee.trim())
+    .filter(Boolean)
+  if (!name || !assignees.length || assignees.includes('Shared') || new Set(assignees).size !== assignees.length) {
+    householdError.value = 'Use a home name and unique Assignee names.'
+    return
+  }
+  household.value = {
+    name,
+    icon: household.value.icon.trim() || defaultHousehold.icon,
+    assignees: [...new Set(assignees)],
+  }
+  try {
+    await persistState({ household: cloneData(household.value) })
+    householdError.value = ''
+  } catch (error) {
+    householdError.value = error.message
+  }
+}
+
+function addAssignee() {
+  const name = newAssignee.value.trim()
+  if (!name || household.value.assignees.includes(name) || name === 'Shared') return
+  household.value.assignees.push(name)
+  newAssignee.value = ''
+}
+
+function removeAssignee(name) {
+  if (household.value.assignees.length === 1 || assigneeInUse(name)) return
+  household.value.assignees = household.value.assignees.filter((assignee) => assignee !== name)
+}
+
+function assigneeInUse(assignee) {
+  return Object.values(weeks.value).some((week) => week.days.some((day) =>
+    day.duties.some((duty) => duty.assignee === assignee)
+    || mealSlots.some((slot) => day.meals[slot.id].assignee === assignee),
+  ))
+}
+
 async function addDutyOption() {
   if (!newDuty.value.name.trim() || !newDuty.value.area.trim()) return
   catalog.value.duties.push({ id: slugify(newDuty.value.name), name: newDuty.value.name.trim(), area: newDuty.value.area.trim() })
@@ -406,11 +463,11 @@ onMounted(async () => {
   <main class="app-shell">
     <header class="app-header">
       <div class="brand-block">
-        <div class="brand-mark"><Sparkles :size="22" /></div>
+        <div class="brand-mark" aria-hidden="true">{{ household.icon }}</div>
         <div>
-          <p class="eyebrow">Fairmont Home</p>
-          <h1>Chore & Activity List</h1>
-          <p class="subtitle">Your task scheduler and to-do list for household chores.</p>
+          <p class="eyebrow">{{ household.name }}</p>
+          <h1>HomeChore</h1>
+          <p class="subtitle">A simple household routine and meal planner for busy families and their helpers.</p>
         </div>
       </div>
       <div class="header-actions no-print">
@@ -523,10 +580,33 @@ onMounted(async () => {
     <NModal v-model:show="optionsDialogOpen">
       <NCard class="modal-card options-card" title="Manage planner options" role="dialog" aria-modal="true" closable @close="optionsDialogOpen = false">
       <div class="option-switch">
+        <Button :type="optionMode === 'household' ? 'primary' : 'default'" @click="optionMode = 'household'"><House :size="17" /> Household</Button>
+        <Button :type="optionMode === 'routine' ? 'primary' : 'default'" @click="optionMode = 'routine'"><Clock3 :size="17" /> Routine</Button>
         <Button :type="optionMode === 'duties' ? 'primary' : 'default'" @click="optionMode = 'duties'"><ListPlus :size="17" /> Duties</Button>
         <Button :type="optionMode === 'meals' ? 'primary' : 'default'" @click="optionMode = 'meals'"><CookingPot :size="17" /> Meals</Button>
       </div>
-      <template v-if="optionMode === 'duties'">
+      <template v-if="optionMode === 'household'">
+        <form class="household-form" @submit.prevent="saveHousehold">
+          <label><span>Home name</span><InputText v-model:value="household.name" placeholder="My Home" aria-label="Home name" /></label>
+          <label><span>Icon</span><Select v-model:value="household.icon" :options="householdIconOptions" aria-label="Home icon" /></label>
+          <div class="assignee-fields">
+            <span>Assignees</span>
+            <div v-for="(assignee, index) in household.assignees" :key="`${assignee}-${index}`" class="assignee-row">
+              <InputText v-model:value="household.assignees[index]" :disabled="assigneeInUse(assignee)" :title="assigneeInUse(assignee) ? 'Move planned work before renaming this Assignee' : undefined" :aria-label="`${assignee} name`" />
+              <Button quaternary circle type="error" :disabled="household.assignees.length === 1 || assigneeInUse(assignee)" :title="assigneeInUse(assignee) ? 'Move planned work before removing this Assignee' : undefined" :aria-label="`Remove ${assignee}`" @click="removeAssignee(assignee)"><X :size="16" /></Button>
+            </div>
+            <div class="add-assignee"><InputText v-model:value="newAssignee" placeholder="Add a person" aria-label="New Assignee name" @keyup.enter.prevent="addAssignee" /><Button secondary @click="addAssignee"><CirclePlus :size="17" /> Add</Button></div>
+          </div>
+          <p v-if="householdError" class="form-error">{{ householdError }}</p>
+          <div class="modal-actions"><Button type="primary" attr-type="submit">Save household</Button></div>
+        </form>
+      </template>
+      <template v-else-if="optionMode === 'routine'">
+        <div class="routine-preview">
+          <div v-for="period in periods" :key="period.id"><strong>{{ period.label }}</strong><span>{{ period.time }}</span></div>
+        </div>
+      </template>
+      <template v-else-if="optionMode === 'duties'">
         <form class="option-form" @submit.prevent="addDutyOption"><InputText v-model:value="newDuty.name" placeholder="Duty name" aria-label="Duty name" /><InputText v-model:value="newDuty.area" placeholder="Area, e.g. Kitchen" aria-label="Duty area" /><Button attr-type="submit"><CirclePlus :size="18" /> Add</Button></form>
         <div class="option-list">
           <div v-for="duty in catalog.duties" :key="duty.id" class="option-row">
