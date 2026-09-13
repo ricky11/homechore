@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+data
+.git
+.github
+.devcontainer
+.vscode
+.scratch
+backup
+docs
+*.log
+npm-debug.log*

@@ -1,0 +1,22 @@
+{
+  "name": "HomeChore",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "postCreateCommand": "npm install",
+  "forwardPorts": [5173, 8787],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite dev client",
+      "onAutoForward": "notify"
+    },
+    "8787": {
+      "label": "Hono server / API",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["Vue.volar"]
+    }
+  },
+  "remoteUser": "node"
+}
