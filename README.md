@@ -21,7 +21,7 @@ HomeChore is a simple household routine and meal planner for busy families and t
 
 HomeChore has no accounts or sign-in. Every device that can reach the server can read and change the planner. Do not expose it directly to the public internet.
 
-## Clone and Run
+## How to Run
 
 Clone the repository first:
 
@@ -30,21 +30,11 @@ git clone https://github.com/ricky11/homechore.git
 cd homechore
 ```
 
-### Windows
+### Option 1: Node.js (recommended)
 
-Open PowerShell in the cloned folder and run:
+This is the simplest option for most households. It runs HomeChore directly on a host computer and does not require Docker.
 
-```powershell
-npm install
-npm run build
-npm start
-```
-
-Open `http://localhost:8787/` on the host computer. If Windows asks, allow Node.js through the firewall on **Private networks**.
-
-### macOS
-
-Open Terminal in the cloned folder and run:
+Install [Node.js 22.5 or newer](https://nodejs.org/), then run these commands in the cloned folder:
 
 ```sh
 npm install
@@ -52,9 +42,48 @@ npm run build
 npm start
 ```
 
-Open `http://localhost:8787/` on the host computer. macOS may ask you to allow incoming connections for Node; allow it only on your trusted local network.
+On Windows, open **Command Prompt** in the cloned folder and run the same commands. Keep the window open while HomeChore is in use. Press `Ctrl+C` to stop it.
+
+Open `http://localhost:8787/` on the host computer. If the operating system asks whether Node.js may accept incoming connections, allow it only on the trusted private network.
 
 Keep the terminal running while HomeChore is in use. Press `Ctrl+C` to stop it.
+
+### Option 2: Docker (advanced)
+
+Docker is optional. It is useful if you already use Docker, Portainer, or another home-server management tool because it keeps the Node.js runtime inside the container and makes upgrades easier to repeat. For a first-time or non-technical setup, the direct Node.js option above has fewer moving parts.
+
+Install Docker Desktop or Docker Engine by following the [official Docker installation guide](https://docs.docker.com/engine/install/), then build the image from the cloned repository:
+
+```sh
+docker build -t homechore:local .
+```
+
+Create a Docker-managed volume so the SQLite database and uploaded Media Assets remain available when the container is recreated:
+
+```sh
+docker volume create homechore-data
+docker run -d \
+	--name homechore \
+	--restart unless-stopped \
+	-p 8787:8787 \
+	-v homechore-data:/app/data \
+	homechore:local
+```
+
+Open `http://localhost:8787/` on the host computer. To view the container logs:
+
+```sh
+docker logs -f homechore
+```
+
+To stop and remove the container:
+
+```sh
+docker stop homechore
+docker rm homechore
+```
+
+The Docker setup does not add authentication. Only publish port `8787` on a trusted private network; do not expose HomeChore directly to the public internet.
 
 ### Share on Your Home Network
 
