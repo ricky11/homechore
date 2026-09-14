@@ -73,3 +73,37 @@ test('keeps the plan usable when Calendar Event retrieval fails', async () => {
   assert.deepEqual(planner.calendarEvents, [])
   assert.equal(planner.calendarEventsError, 'Google Calendar is unavailable.')
 })
+
+test('copies a Calendar Event once as an independent Duty with safe time mapping', () => {
+  setActivePinia(createPinia())
+  const planner = usePlannerStore()
+  planner.household.routinePeriods = [
+    { id: 'morning', label: 'Morning', start: '06:30', end: '11:00' },
+    { id: 'evening', label: 'Evening', start: '15:00', end: '20:00' },
+  ]
+  const startDay = { date: '2026-09-14', duties: [] }
+  const laterDay = { date: '2026-09-15', duties: [] }
+  const timedEvent = { id: 'timed', title: 'School concert', start: '2026-09-14T17:00:00+08:00', end: '2026-09-14T18:00:00+08:00', allDay: false }
+  const allDayEvent = { id: 'all-day', title: 'School holiday', start: '2026-09-14', end: '2026-09-16', allDay: true }
+  const unmappableEvent = { id: 'unmappable', title: 'Midday appointment', start: '2026-09-14T12:15:00+08:00', end: '2026-09-14T13:15:00+08:00', allDay: false }
+
+  planner.copyCalendarEvent(startDay, timedEvent)
+  planner.copyCalendarEvent(startDay, timedEvent)
+  planner.copyCalendarEvent(startDay, allDayEvent)
+  planner.copyCalendarEvent(startDay, unmappableEvent)
+  planner.copyCalendarEvent(laterDay, timedEvent)
+
+  assert.deepEqual(startDay.duties.map(({ sourceEventId, name, assignee, period, time }) => ({ sourceEventId, name, assignee, period, time })), [
+    { sourceEventId: 'timed', name: 'School concert', assignee: 'Shared', period: 'evening', time: '17:00' },
+    { sourceEventId: 'all-day', name: 'School holiday', assignee: 'Shared', period: 'morning', time: '' },
+    { sourceEventId: 'unmappable', name: 'Midday appointment', assignee: 'Shared', period: 'morning', time: '' },
+  ])
+  assert.deepEqual(laterDay.duties.map(({ sourceEventId, period, time }) => ({ sourceEventId, period, time })), [
+    { sourceEventId: 'timed', period: 'morning', time: '' },
+  ])
+  assert.equal(planner.calendarEventIsCopied(startDay, timedEvent), true)
+  planner.removeDuty(startDay, startDay.duties[0].id)
+  assert.equal(planner.calendarEventIsCopied(startDay, timedEvent), false)
+  startDay.duties[0].name = 'Edited HomeChore Duty'
+  assert.equal(allDayEvent.title, 'School holiday')
+})

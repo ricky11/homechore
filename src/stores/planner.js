@@ -122,6 +122,18 @@ export const usePlannerStore = defineStore('planner', () => {
   function dutiesFor(day, periodId) { return day.duties.filter((duty) => duty.period === periodId) }
   function dutyEmoji(duty) { return catalog.value.duties.find((option) => option.id === duty.sourceId)?.emoji || duty.emoji || suggestedDutyEmoji(duty.name) }
   function calendarEventsFor(day) { return calendarEventsForDay(calendarEvents.value, day.date) }
+  function calendarEventIsCopied(day, event) { return day.duties.some((duty) => duty.sourceEventId === event.id) }
+  function calendarEventTimeForDay(day, event) {
+    if (event.allDay || toDateKey(new Date(event.start)) !== day.date) return ''
+    const start = new Date(event.start)
+    return `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
+  }
+  function copyCalendarEvent(day, event) {
+    if (calendarEventIsCopied(day, event)) return
+    const time = calendarEventTimeForDay(day, event)
+    const period = periods.value.find((item) => timeOptionsFor(item.id).some((option) => option.value === time)) ?? periods.value[0]
+    day.duties.push({ id: createId(), sourceId: null, sourceEventId: event.id, name: event.title, area: 'Calendar', emoji: '', period: period?.id ?? 'morning', assignee: 'Shared', time: period && timeOptionsFor(period.id).some((option) => option.value === time) ? time : '' })
+  }
   function timeOptionsFor(periodId) { const period = periods.value.find((item) => item.id === periodId); return period ? allTimeOptions.filter((option) => minutesFor(option.value) >= minutesFor(period.start) && minutesFor(option.value) < minutesFor(period.end)) : [] }
   function changeDutyPeriod(duty, periodId) { duty.period = periodId; if (duty.time && !timeOptionsFor(periodId).some((option) => option.value === duty.time)) duty.time = '' }
   async function changeDuty(duty, sourceId) { let source = catalog.value.duties.find((item) => item.id === sourceId); if (!source && typeof sourceId === 'string' && sourceId.trim()) { source = { id: slugify(sourceId), name: sourceId.trim(), area: 'General', emoji: suggestedDutyEmoji(sourceId) }; catalog.value.duties.push(source); await saveCatalog() }; if (source) Object.assign(duty, { sourceId: source.id, name: source.name, area: source.area, emoji: source.emoji ?? '' }) }
@@ -165,5 +177,5 @@ export const usePlannerStore = defineStore('planner', () => {
       void fetchCalendarEvents(start, toDateKey(addDays(parseDate(start), 7)))
     }
   })
-  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, calendarEvents, calendarEventsError, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, calendarEventsFor, calendarEventTime, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
+  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, calendarEvents, calendarEventsError, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, calendarEventsFor, calendarEventTime, calendarEventIsCopied, copyCalendarEvent, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
 })
