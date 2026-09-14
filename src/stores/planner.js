@@ -1,7 +1,8 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import seed from '../data/seed.json'
-import { addDays, allTimeOptions, buildDays, cloneData, copyWeek, createId, createWeek, defaultHousehold, mealParts, mealSlots, mondayFor, parseDate, suggestedDutyEmoji, toDateKey, minutesFor, slugify } from '../utils/planner'
+import seed from '../data/seed.json' with { type: 'json' }
+import { calendarEventTime, calendarEventsForDay } from '../utils/calendar-events.js'
+import { addDays, allTimeOptions, buildDays, cloneData, copyWeek, createId, createWeek, defaultHousehold, mealParts, mealSlots, mondayFor, parseDate, suggestedDutyEmoji, toDateKey, minutesFor, slugify } from '../utils/planner.js'
 
 export const usePlannerStore = defineStore('planner', () => {
   const weeks = ref({})
@@ -15,8 +16,11 @@ export const usePlannerStore = defineStore('planner', () => {
   const previousWeekAvailable = ref(false)
   const householdError = ref('')
   const googleCalendarIntegration = ref(null)
+  const calendarEvents = ref([])
+  const calendarEventsError = ref('')
   let saveTimer
   let hydrating = false
+  let calendarEventsRequest = 0
 
   const selectedDay = computed(() => selectedDayIndex.value === null || !currentWeek.value ? null : currentWeek.value.days[selectedDayIndex.value])
   const weekLabel = computed(() => {
@@ -53,6 +57,21 @@ export const usePlannerStore = defineStore('planner', () => {
       googleCalendarIntegration.value = { available: false, status: 'error', message: 'Google Calendar status is unavailable right now.' }
     }
   }
+  async function fetchCalendarEvents(start, end) {
+    const request = ++calendarEventsRequest
+    try {
+      const response = await fetch(`/api/calendar-events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error ?? 'Could not load Calendar Events.')
+      if (request !== calendarEventsRequest) return
+      calendarEvents.value = result.events ?? []
+      calendarEventsError.value = ''
+    } catch (error) {
+      if (request !== calendarEventsRequest) return
+      calendarEvents.value = []
+      calendarEventsError.value = error.message
+    }
+  }
   async function googleCalendarCalendars() {
     const response = await fetch('/api/integrations/google/calendars')
     const result = await response.json().catch(() => ({}))
@@ -76,6 +95,7 @@ export const usePlannerStore = defineStore('planner', () => {
     hydrating = true; saveState.value = 'Saved'; currentWeek.value = weeks.value[weekKey] ?? createWeek(weekKey)
     previousWeekAvailable.value = Boolean(weeks.value[toDateKey(addDays(parseDate(weekKey), -7))])
     if (!weeks.value[weekKey]) await saveWeek(currentWeek.value)
+    void fetchCalendarEvents(weekKey, toDateKey(addDays(parseDate(weekKey), 7)))
     await nextTick(); hydrating = false
   }
   async function initialize() {
@@ -101,6 +121,7 @@ export const usePlannerStore = defineStore('planner', () => {
   function addDuty(day, periodId) { day.duties.push(catalog.value.duties[0] ? snapshotDuty(catalog.value.duties[0].id, periodId) : { id: createId(), sourceId: null, name: '', area: 'General', period: periodId, assignee: 'Shared', time: '' }) }
   function dutiesFor(day, periodId) { return day.duties.filter((duty) => duty.period === periodId) }
   function dutyEmoji(duty) { return catalog.value.duties.find((option) => option.id === duty.sourceId)?.emoji || duty.emoji || suggestedDutyEmoji(duty.name) }
+  function calendarEventsFor(day) { return calendarEventsForDay(calendarEvents.value, day.date) }
   function timeOptionsFor(periodId) { const period = periods.value.find((item) => item.id === periodId); return period ? allTimeOptions.filter((option) => minutesFor(option.value) >= minutesFor(period.start) && minutesFor(option.value) < minutesFor(period.end)) : [] }
   function changeDutyPeriod(duty, periodId) { duty.period = periodId; if (duty.time && !timeOptionsFor(periodId).some((option) => option.value === duty.time)) duty.time = '' }
   async function changeDuty(duty, sourceId) { let source = catalog.value.duties.find((item) => item.id === sourceId); if (!source && typeof sourceId === 'string' && sourceId.trim()) { source = { id: slugify(sourceId), name: sourceId.trim(), area: 'General', emoji: suggestedDutyEmoji(sourceId) }; catalog.value.duties.push(source); await saveCatalog() }; if (source) Object.assign(duty, { sourceId: source.id, name: source.name, area: source.area, emoji: source.emoji ?? '' }) }
@@ -136,5 +157,13 @@ export const usePlannerStore = defineStore('planner', () => {
     const form = new FormData(); form.append('image', blob, 'meal.webp'); const response = await fetch('/api/media', { method: 'POST', body: form }); const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error ?? 'Could not save this image.'); return result.filename
   }
   watch(currentWeek, scheduleSave, { deep: true })
-  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
+  watch(selectedDay, (day) => {
+    if (day) {
+      void fetchCalendarEvents(day.date, toDateKey(addDays(parseDate(day.date), 1)))
+    } else if (currentWeek.value) {
+      const start = currentWeek.value.id
+      void fetchCalendarEvents(start, toDateKey(addDays(parseDate(start), 7)))
+    }
+  })
+  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, calendarEvents, calendarEventsError, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, calendarEventsFor, calendarEventTime, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
 })

@@ -217,8 +217,21 @@ function googleCalendarError(context, error) {
   return context.json({ error: error instanceof Error ? error.message : 'Google Calendar is unavailable.' }, 400)
 }
 
+function calendarEventRange(context) {
+  const start = context.req.query('start')
+  const end = context.req.query('end')
+  const validDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00.000Z`).toISOString().startsWith(value)
+  return validDate(start) && validDate(end) && start < end ? { start, end } : null
+}
+
 app.get('/api/state', (context) => context.json(readState()))
 app.get('/api/integrations/google', (context) => context.json(googleCalendar.status()))
+app.get('/api/calendar-events', async (context) => {
+  const range = calendarEventRange(context)
+  if (!range) return context.json({ error: 'Use a valid Calendar Event date range.' }, 400)
+  try { return context.json({ events: await googleCalendar.listEvents(range) }) }
+  catch (error) { return context.json({ error: error instanceof Error ? error.message : 'Could not load Calendar Events.' }, 503) }
+})
 app.get('/api/integrations/google/connect', (context) => {
   const denied = hostOnly(context)
   if (denied) return denied

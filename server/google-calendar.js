@@ -47,6 +47,24 @@ export function createGoogleProvider(clientId, clientSecret) {
       const response = await google.calendar({ version: 'v3', auth }).calendarList.list({ minAccessRole: 'reader' })
       return (response.data.items ?? []).map((calendar) => ({ id: calendar.id, summary: calendar.summary ?? calendar.id, primary: Boolean(calendar.primary) }))
     },
+    async listEvents({ refreshToken, calendarId, start, end }) {
+      const auth = createClient()
+      auth.setCredentials({ refresh_token: refreshToken })
+      const response = await google.calendar({ version: 'v3', auth }).events.list({
+        calendarId,
+        timeMin: `${start}T00:00:00.000Z`,
+        timeMax: `${end}T00:00:00.000Z`,
+        singleEvents: true,
+        orderBy: 'startTime',
+      })
+      return (response.data.items ?? []).flatMap((event) => {
+        const startValue = event.start?.dateTime ?? event.start?.date
+        const endValue = event.end?.dateTime ?? event.end?.date
+        return event.id && startValue && endValue
+          ? [{ id: event.id, title: event.summary ?? 'Untitled event', start: startValue, end: endValue, allDay: Boolean(event.start?.date) }]
+          : []
+      })
+    },
   }
 }
 
@@ -118,7 +136,14 @@ export function createGoogleCalendarGateway({ database, clientId, clientSecret, 
     save({ ...value, calendarId: calendar.id, calendarSummary: calendar.summary })
   }
 
+  async function listEvents({ start, end }) {
+    const value = activeConnection()
+    if (!value?.calendarId) throw new Error('Choose a Google Calendar before viewing Calendar Events.')
+    const events = await provider.listEvents({ refreshToken: value.refreshToken, calendarId: value.calendarId, start, end })
+    return events.map(({ calendarId, ...event }) => event)
+  }
+
   function disconnect() { remove.run(connectionId) }
 
-  return { status, startConnection, completeConnection, listCalendars, selectCalendar, disconnect }
+  return { status, startConnection, completeConnection, listCalendars, selectCalendar, listEvents, disconnect }
 }

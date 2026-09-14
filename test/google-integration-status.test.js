@@ -27,3 +27,10 @@ test('does not allow a remote client to manage Google Calendar', async () => {
     assert.match((await response.json()).error, /host computer/)
   }
 })
+
+test('rejects malformed Calendar Event date ranges', async () => {
+  const response = await app.request('/api/calendar-events?start=2026-09-31&end=2026-10-01')
+
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), { error: 'Use a valid Calendar Event date range.' })
+})

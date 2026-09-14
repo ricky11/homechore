@@ -71,6 +71,11 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
 .meal-summary div { display: grid; margin-bottom: 7px; }
 .meal-summary strong { font-size: 0.67rem; color: #8c7440; }
 .meal-summary span { font-size: 0.74rem; line-height: 1.3; }
+.calendar-event-summary { display: grid; gap: 7px; padding: 12px; border-top: 1px solid var(--line); background: #edf4fa; }
+.calendar-event-summary > p { display: flex; align-items: center; gap: 5px; margin: 0; color: #3c6988; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+.calendar-event-summary div { display: grid; gap: 2px; }
+.calendar-event-summary strong { color: #56758b; font-size: 0.67rem; }
+.calendar-event-summary span { font-size: 0.74rem; line-height: 1.3; }
 .board-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 9px; color: var(--muted); font-size: 0.82rem; }
 .board-footer p { margin: 0; }
 .footer-actions { display: flex; align-items: center; gap: 8px; }
@@ -94,6 +99,12 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
 .duty-choice .duty-select { flex: 1 1 auto; }
 .empty-line { padding: 13px; border: 1px dashed #cdd4cf; border-radius: 6px; color: #939d98; font-size: 0.82rem; text-align: center; }
 .meal-editor { padding: 20px; }
+.calendar-event-list { display: grid; gap: 8px; margin-bottom: 18px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
+.calendar-event-list .section-heading { margin: 0; }
+.calendar-event { display: grid; gap: 2px; padding: 9px 10px; border-left: 4px solid var(--blue); background: #edf4fa; }
+.calendar-event strong { font-size: 0.84rem; }
+.calendar-event span, .calendar-event-error { color: var(--muted); font-size: 0.76rem; }
+.calendar-event-error { margin: 0 0 16px; padding: 9px 10px; border-left: 4px solid var(--coral); background: #fff1ed; }
 .meal-slot { padding: 15px 0; border-top: 1px solid var(--line); }
 .meal-slot h4 { margin-bottom: 10px; color: var(--ink); }
 .meal-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

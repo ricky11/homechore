@@ -19,6 +19,10 @@ function createFakeProvider() {
       { id: 'family', summary: 'Family calendar', primary: false },
       { id: 'shared', summary: 'Shared calendar', primary: false },
     ],
+    listEvents: async ({ calendarId, start, end }) => [
+      { id: 'event-1', title: 'School concert', start: `${start}T17:00:00+08:00`, end: `${start}T18:00:00+08:00`, allDay: false, calendarId },
+      { id: 'event-2', title: 'School holiday', start: start, end, allDay: true, calendarId },
+    ],
   }
 }
 
@@ -54,6 +58,10 @@ test('persists an encrypted read-only Google Calendar connection and selected ca
     message: 'Google Calendar is connected.',
     calendar: { id: 'shared', summary: 'Shared calendar' },
   })
+  assert.deepEqual(await gateway.listEvents({ start: '2026-09-14', end: '2026-09-21' }), [
+    { id: 'event-1', title: 'School concert', start: '2026-09-14T17:00:00+08:00', end: '2026-09-14T18:00:00+08:00', allDay: false },
+    { id: 'event-2', title: 'School holiday', start: '2026-09-14', end: '2026-09-21', allDay: true },
+  ])
   assert.doesNotMatch(database.prepare('SELECT connection_json FROM google_calendar_connection WHERE id = 1').get().connection_json, /refresh-token/)
 
   const restartedGateway = createGoogleCalendarGateway({ database, clientId, clientSecret, encryptionKey, provider: createFakeProvider() })
@@ -86,4 +94,25 @@ test('rejects an invalid OAuth state and provider failures without storing a con
   await assert.rejects(gateway.completeConnection({ code: 'bad-code', state: authorization.state }), /Google rejected/)
   await assert.rejects(gateway.completeConnection({ code: 'valid-code', state: 'wrong-state' }), /state/)
   assert.deepEqual(gateway.status(), { available: true, status: 'disconnected', message: 'Google Calendar is ready to connect on this host.' })
+})
+
+test('does not load Calendar Events until a Calendar is selected', async () => {
+  const database = new DatabaseSync(':memory:')
+  const gateway = createGoogleCalendarGateway({ database, clientId, clientSecret, encryptionKey, provider: createFakeProvider() })
+  const authorization = gateway.startConnection()
+  await gateway.completeConnection({ code: 'valid-code', state: authorization.state })
+
+  await assert.rejects(gateway.listEvents({ start: '2026-09-14', end: '2026-09-21' }), /Choose a Google Calendar/)
+})
+
+test('surfaces a Calendar Event provider refresh failure', async () => {
+  const database = new DatabaseSync(':memory:')
+  const provider = createFakeProvider()
+  provider.listEvents = async () => { throw new Error('Google Calendar is temporarily unavailable.') }
+  const gateway = createGoogleCalendarGateway({ database, clientId, clientSecret, encryptionKey, provider })
+  const authorization = gateway.startConnection()
+  await gateway.completeConnection({ code: 'valid-code', state: authorization.state })
+  await gateway.selectCalendar('family')
+
+  await assert.rejects(gateway.listEvents({ start: '2026-09-14', end: '2026-09-21' }), /temporarily unavailable/)
 })
