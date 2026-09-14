@@ -193,7 +193,16 @@ removeUnreferencedMediaAssets(readState().catalog)
 
 const app = new Hono()
 
+function googleCalendarStatus() {
+  const configured = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_TOKEN_ENCRYPTION_KEY']
+    .every((name) => typeof process.env[name] === 'string' && process.env[name].trim())
+  return configured
+    ? { available: true, status: 'disconnected', message: 'Google Calendar is ready to connect on this host.' }
+    : { available: false, status: 'unavailable', message: 'Google Calendar is not configured on this host.' }
+}
+
 app.get('/api/state', (context) => context.json(readState()))
+app.get('/api/integrations/google', (context) => context.json(googleCalendarStatus()))
 app.use('/api/media', bodyLimit({
   maxSize: maxMediaRequestBytes,
   onError: (context) => context.json({ error: 'Upload a WebP image smaller than 5 MB.' }, 413),

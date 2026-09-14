@@ -14,6 +14,7 @@ export const usePlannerStore = defineStore('planner', () => {
   const saveState = ref('Saved')
   const previousWeekAvailable = ref(false)
   const householdError = ref('')
+  const googleCalendarIntegration = ref(null)
   let saveTimer
   let hydrating = false
 
@@ -43,6 +44,15 @@ export const usePlannerStore = defineStore('planner', () => {
     household.value = { ...cloneData(defaultHousehold), ...state.household }
     if (!Array.isArray(household.value.assignees) || !household.value.assignees.length) household.value.assignees = [...defaultHousehold.assignees]
   }
+  async function fetchGoogleCalendarIntegration() {
+    try {
+      const response = await fetch('/api/integrations/google')
+      if (!response.ok) throw new Error('Could not load Google Calendar status.')
+      googleCalendarIntegration.value = await response.json()
+    } catch {
+      googleCalendarIntegration.value = { available: false, status: 'error', message: 'Google Calendar status is unavailable right now.' }
+    }
+  }
   // Hydration suppresses the week watcher while replacing the current record.
   async function loadWeek(weekKey) {
     hydrating = true; saveState.value = 'Saved'; currentWeek.value = weeks.value[weekKey] ?? createWeek(weekKey)
@@ -51,7 +61,7 @@ export const usePlannerStore = defineStore('planner', () => {
     await nextTick(); hydrating = false
   }
   async function initialize() {
-    try { await fetchSharedState(); await loadWeek(toDateKey(mondayFor())) }
+    try { await fetchSharedState(); await loadWeek(toDateKey(mondayFor())); void fetchGoogleCalendarIntegration() }
     catch { serverError.value = 'The shared planner server is unavailable. Start it with npm run dev or npm start.'; saveState.value = 'Server unavailable' }
     finally { loading.value = false }
   }
@@ -108,5 +118,5 @@ export const usePlannerStore = defineStore('planner', () => {
     const form = new FormData(); form.append('image', blob, 'meal.webp'); const response = await fetch('/api/media', { method: 'POST', body: form }); const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error ?? 'Could not save this image.'); return result.filename
   }
   watch(currentWeek, scheduleSave, { deep: true })
-  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage }
+  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage }
 })

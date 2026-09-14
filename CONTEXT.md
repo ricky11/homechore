@@ -24,6 +24,14 @@ _Avoid_: Task, job
 A reusable dish that can be selected as a meal part in the daily plan.
 _Avoid_: Meal item, recipe
 
+**Calendar Event**:
+A read-only occurrence fetched from the Household's selected Google Calendar and visible to its trusted local-network devices. It may be copied into an independent Duty but is never written back to Google.
+_Avoid_: Calendar task, synced Duty
+
+**Google Calendar Integration**:
+The Household's host-managed, read-only connection to one selected Google Calendar. It provides Calendar Events but does not alter Google Calendar data.
+_Avoid_: Calendar sync, Google account
+
 **Media Asset**:
 An uploaded meal image stored as a processed file in the Household's local media directory and referenced by its filename.
 _Avoid_: Blob, database image, base64 image

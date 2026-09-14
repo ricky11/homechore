@@ -104,6 +104,10 @@ h1 { margin-bottom: 2px; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1
 .notes-field textarea { width: 100%; }
 
 .option-switch { gap: 8px; margin-bottom: 16px; }
+.integration-status { display: grid; gap: 10px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: #f8fbf9; }
+.integration-status h3, .integration-status p { margin: 0; }
+.integration-status > p { color: var(--muted); line-height: 1.45; }
+.options-card:has(.integration-status) .meal-option-form, .options-card:has(.integration-status) > .form-error, .options-card:has(.integration-status) .option-list { display: none; }
 .modal-card { width: min(28rem, calc(100vw - 2rem)); }
 .modal-card.options-card { width: min(48rem, calc(100vw - 2rem)); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
