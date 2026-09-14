@@ -3,13 +3,18 @@ import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { serveStatic } from '@hono/node-server/serve-static'
+import { getConnInfo } from '@hono/node-server/conninfo'
 import { bodyLimit } from 'hono/body-limit'
 import { Hono } from 'hono'
+import { createGoogleCalendarGateway } from './google-calendar.js'
+import { googleOAuthClientId } from './google-oauth-client.js'
+import { getOrCreateGoogleTokenKey } from './google-token-key.js'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const dataDirectory = fileURLToPath(new URL('../data/', import.meta.url))
 const mediaDirectory = fileURLToPath(new URL('../data/uploads/', import.meta.url))
 const databasePath = fileURLToPath(new URL('../data/homechore.db', import.meta.url))
+const googleTokenKeyPath = fileURLToPath(new URL('../data/google-calendar.key', import.meta.url))
 const maxMediaBytes = 5 * 1024 * 1024
 const maxMediaRequestBytes = maxMediaBytes + 64 * 1024
 const mediaCleanupGracePeriodMs = 15 * 60 * 1000
@@ -192,17 +197,68 @@ function readState() {
 removeUnreferencedMediaAssets(readState().catalog)
 
 const app = new Hono()
+const googleCalendar = createGoogleCalendarGateway({ database, clientId: googleOAuthClientId, encryptionKey: getOrCreateGoogleTokenKey(googleTokenKeyPath) })
 
-function googleCalendarStatus() {
-  const configured = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_TOKEN_ENCRYPTION_KEY']
-    .every((name) => typeof process.env[name] === 'string' && process.env[name].trim())
-  return configured
-    ? { available: true, status: 'disconnected', message: 'Google Calendar is ready to connect on this host.' }
-    : { available: false, status: 'unavailable', message: 'Google Calendar is not configured on this host.' }
+function requestIsFromHost(context) {
+  const hostIsLocal = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(context.req.header('host') ?? '')
+  try {
+    const address = getConnInfo(context).remote.address
+    return hostIsLocal && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address)
+  } catch {
+    return false
+  }
+}
+
+function hostOnly(context) {
+  return requestIsFromHost(context) ? null : context.json({ error: 'Google Calendar can only be connected from the HomeChore host computer.' }, 403)
+}
+
+function googleCalendarError(context, error) {
+  return context.json({ error: error instanceof Error ? error.message : 'Google Calendar is unavailable.' }, 400)
 }
 
 app.get('/api/state', (context) => context.json(readState()))
-app.get('/api/integrations/google', (context) => context.json(googleCalendarStatus()))
+app.get('/api/integrations/google', (context) => context.json(googleCalendar.status()))
+app.get('/api/integrations/google/connect', (context) => {
+  const denied = hostOnly(context)
+  if (denied) return denied
+  try { return context.redirect(googleCalendar.startConnection().url) } catch (error) { return googleCalendarError(context, error) }
+})
+app.get('/api/integrations/google/callback', async (context) => {
+  const denied = hostOnly(context)
+  if (denied) return denied
+  const error = context.req.query('error')
+  if (error) {
+    const description = context.req.query('error_description')?.slice(0, 240) ?? error
+    return context.redirect(`/?googleCalendarError=${encodeURIComponent(description)}`)
+  }
+  try {
+    await googleCalendar.completeConnection({ code: context.req.query('code'), state: context.req.query('state') })
+    return context.redirect('/?googleCalendarConnected=1')
+  } catch (callbackError) {
+    return context.redirect(`/?googleCalendarError=${encodeURIComponent(callbackError.message)}`)
+  }
+})
+app.get('/api/integrations/google/calendars', async (context) => {
+  const denied = hostOnly(context)
+  if (denied) return denied
+  try { return context.json({ calendars: await googleCalendar.listCalendars() }) } catch (error) { return googleCalendarError(context, error) }
+})
+app.put('/api/integrations/google/calendar', async (context) => {
+  const denied = hostOnly(context)
+  if (denied) return denied
+  try {
+    const { calendarId } = await context.req.json()
+    await googleCalendar.selectCalendar(calendarId)
+    return context.json(googleCalendar.status())
+  } catch (error) { return googleCalendarError(context, error) }
+})
+app.delete('/api/integrations/google', (context) => {
+  const denied = hostOnly(context)
+  if (denied) return denied
+  googleCalendar.disconnect()
+  return context.json(googleCalendar.status())
+})
 app.use('/api/media', bodyLimit({
   maxSize: maxMediaRequestBytes,
   onError: (context) => context.json({ error: 'Upload a WebP image smaller than 5 MB.' }, 413),

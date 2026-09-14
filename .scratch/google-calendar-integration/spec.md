@@ -1,6 +1,6 @@
 # Google Calendar Integration
 
-Status: ready-for-agent
+Status: completed
 
 ## Problem Statement
 
@@ -48,11 +48,11 @@ Weekly plans show Calendar Events grouped by day. Daily plans show that day's Ca
 ## Implementation Decisions
 
 - Introduce a Google Calendar gateway as the single server-side boundary for Google OAuth, encrypted connection persistence, readable-calendar discovery, selected-calendar management, and Calendar Event retrieval. Client code must never call Google directly.
-- Add Google API support with the standard OAuth authorization-code flow. The redirect endpoint is served by the HomeChore host at `http://localhost:8787/api/integrations/google/callback`.
-- Read configuration only from the host environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_TOKEN_ENCRYPTION_KEY`.
+- Add Google API support with the standard OAuth authorization-code flow for HomeChore's maintainer-owned public OAuth client. The redirect endpoint is served by the HomeChore host at `http://127.0.0.1:8787/api/integrations/google/callback`.
+- Include HomeChore's public Google OAuth client ID with the application. Do not require a Household to create a Google Cloud project, configure OAuth credentials, or enter credentials in HomeChore. Do not include a confidential client secret in the repository or application.
 - Request only the Google Calendar read-only scope. HomeChore must not call Google endpoints that create, update, or delete calendar data.
-- Encrypt the persisted Google refresh token with the required host encryption key. Persist the encrypted token, selected calendar ID, and connection metadata in SQLite. Never return tokens or client credentials from HomeChore API endpoints.
-- When required Google configuration is absent, expose an unavailable integration status and host-setup guidance in the Integrations tab. Do not collect OAuth credentials in the browser.
+- Generate a stable local encryption key on first use and use it to encrypt the persisted Google refresh token. Persist the encrypted token, selected calendar ID, connection metadata, and local key in HomeChore's private data directory. Never return tokens or client credentials from HomeChore API endpoints.
+- When HomeChore has no maintainer-provided public OAuth client ID, expose an unavailable status that explains the application needs an official Google client update. Do not collect OAuth credentials in the browser.
 - The integration can be connected and disconnected only through a browser running on the host computer. Other trusted local-network devices can view the status and Calendar Events but cannot initiate or end the connection.
 - The integration setup must list all readable calendars returned by Google, including shared calendars, and require exactly one selected calendar before Calendar Events are shown.
 - HomeChore serves Calendar Events from the selected Google Calendar to all trusted local-network devices. This is intentionally unauthenticated in the Local Edition and must be documented as a privacy implication.
@@ -65,7 +65,7 @@ Weekly plans show Calendar Events grouped by day. Daily plans show that day's Ca
 - The event add control is disabled as Added when the day already contains a Duty copied from the same Calendar Event occurrence. Deleting that Duty re-enables the control.
 - Disconnect deletes the encrypted token, selected calendar data, and integration metadata immediately. It does not alter independently copied Duties.
 - Add an Integrations tab to the existing Manage dialog, using the existing component and control conventions. Use familiar icon-only actions with accessible labels and tooltips where appropriate.
-- Update local-hosting documentation with Google Cloud OAuth client setup, required environment variables, localhost-only connection behavior, encryption-key backup implications, read-only scope, and local-network event visibility.
+- Update local-hosting documentation with the one-click Google connection, localhost-only connection behavior, local encryption-key backup implications, read-only scope, and local-network event visibility. Document the maintainer Google Cloud setup separately from Household setup.
 
 ## Testing Decisions
 

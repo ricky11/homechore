@@ -53,6 +53,24 @@ export const usePlannerStore = defineStore('planner', () => {
       googleCalendarIntegration.value = { available: false, status: 'error', message: 'Google Calendar status is unavailable right now.' }
     }
   }
+  async function googleCalendarCalendars() {
+    const response = await fetch('/api/integrations/google/calendars')
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error ?? 'Could not load Google Calendars.')
+    return result.calendars ?? []
+  }
+  async function selectGoogleCalendar(calendarId) {
+    const response = await fetch('/api/integrations/google/calendar', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ calendarId }) })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error ?? 'Could not select the Google Calendar.')
+    googleCalendarIntegration.value = result
+  }
+  async function disconnectGoogleCalendar() {
+    const response = await fetch('/api/integrations/google', { method: 'DELETE' })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error ?? 'Could not disconnect Google Calendar.')
+    googleCalendarIntegration.value = result
+  }
   // Hydration suppresses the week watcher while replacing the current record.
   async function loadWeek(weekKey) {
     hydrating = true; saveState.value = 'Saved'; currentWeek.value = weeks.value[weekKey] ?? createWeek(weekKey)
@@ -118,5 +136,5 @@ export const usePlannerStore = defineStore('planner', () => {
     const form = new FormData(); form.append('image', blob, 'meal.webp'); const response = await fetch('/api/media', { method: 'POST', body: form }); const result = await response.json().catch(() => ({})); if (!response.ok) throw new Error(result.error ?? 'Could not save this image.'); return result.filename
   }
   watch(currentWeek, scheduleSave, { deep: true })
-  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage }
+  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
 })

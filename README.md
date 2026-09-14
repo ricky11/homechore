@@ -104,6 +104,14 @@ npm run dev
 
 Vite runs the client on port `5173` and forwards API and Media Asset requests to the Hono server on port `8787`.
 
+## Google Calendar
+
+Google Calendar is optional and read-only. A Household does not need a Google Cloud project or OAuth configuration. Open HomeChore at `http://127.0.0.1:8787/` on the host to add, choose, change, or disconnect one shared Calendar. These controls are unavailable from `chores.local` and network addresses. HomeChore requests only Google Calendar read access and never writes to Google.
+
+HomeChore creates a private encryption key at `data/google-calendar.key` when needed. It encrypts the Google refresh token stored in `data/homechore.db`. Back up this key with the database; without it, the Household must reconnect Google Calendar after a restore.
+
+The selected Calendar's event titles and times will be visible to every device that can access HomeChore on the trusted local network. Do not connect a Calendar whose details should not be shared with those devices.
+
 ## Using the Planner
 
 Use **Manage** to configure the Household name and icon, Assignees, days off, Routine Periods, Duties, emoji cues, and Meal Options. Changes are shared with all browsers using the same server.

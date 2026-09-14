@@ -2,50 +2,28 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { app } from '../server/app.js'
 
-async function withGoogleConfiguration(values, callback) {
-  const names = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_TOKEN_ENCRYPTION_KEY']
-  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]))
-  for (const name of names) {
-    if (values[name] === undefined) delete process.env[name]
-    else process.env[name] = values[name]
-  }
+test('reports Google Calendar status without Household configuration', async () => {
+  const response = await app.request('/api/integrations/google')
+  const status = await response.json()
 
-  try {
-    await callback()
-  } finally {
-    for (const name of names) {
-      if (previous[name] === undefined) delete process.env[name]
-      else process.env[name] = previous[name]
-    }
-  }
-}
-
-test('reports Google Calendar as unavailable when host configuration is absent', async () => {
-  await withGoogleConfiguration({}, async () => {
-    const response = await app.request('/api/integrations/google')
-
-    assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), {
-      available: false,
-      status: 'unavailable',
-      message: 'Google Calendar is not configured on this host.',
-    })
-  })
+  assert.equal(response.status, 200)
+  assert.equal(status.available, true)
+  assert.ok(['disconnected', 'connecting', 'connected', 'ready'].includes(status.status))
+  assert.equal('refreshToken' in status, false)
+  assert.equal('clientSecret' in status, false)
 })
 
-test('reports Google Calendar as ready to connect when host configuration is present', async () => {
-  await withGoogleConfiguration({
-    GOOGLE_CLIENT_ID: 'client-id',
-    GOOGLE_CLIENT_SECRET: 'client-secret',
-    GOOGLE_TOKEN_ENCRYPTION_KEY: 'encryption-key',
-  }, async () => {
-    const response = await app.request('/api/integrations/google')
+test('does not allow a remote client to manage Google Calendar', async () => {
+  const requests = [
+    { path: '/api/integrations/google/connect' },
+    { path: '/api/integrations/google/calendars' },
+    { path: '/api/integrations/google/calendar', method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ calendarId: 'shared' }) },
+    { path: '/api/integrations/google', method: 'DELETE' },
+  ]
 
-    assert.equal(response.status, 200)
-    assert.deepEqual(await response.json(), {
-      available: true,
-      status: 'disconnected',
-      message: 'Google Calendar is ready to connect on this host.',
-    })
-  })
+  for (const request of requests) {
+    const response = await app.request(request.path, { ...request, headers: { ...request.headers, Host: '192.168.1.20:8787' } })
+    assert.equal(response.status, 403)
+    assert.match((await response.json()).error, /host computer/)
+  }
 })
