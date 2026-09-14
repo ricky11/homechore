@@ -85,6 +85,8 @@ docker rm homechore
 
 The Docker setup does not add authentication. Only publish port `8787` on a trusted private network; do not expose HomeChore directly to the public internet.
 
+Google Calendar connection is not supported by this Docker bridge setup because HomeChore's host-only connection guard rejects Docker bridge traffic as non-loopback. Use the direct Node.js setup above when the Household needs Google Calendar.
+
 ### Share on Your Home Network
 
 The start command prints a network address. On another device connected to the same private network, first try:
@@ -106,7 +108,9 @@ Vite runs the client on port `5173` and forwards API and Media Asset requests to
 
 ## Google Calendar
 
-Google Calendar is optional and read-only. A Household does not need a Google Cloud project or OAuth configuration. Open HomeChore at `http://127.0.0.1:8787/` on the host to add, choose, change, or disconnect one shared Calendar. These controls are unavailable from `chores.local` and network addresses. HomeChore requests only Google Calendar read access and never writes to Google.
+Google Calendar is optional and read-only. A Household does not need a Google Cloud project, OAuth client, client secret, or environment variables. HomeChore includes its own Desktop OAuth identity. Open `http://127.0.0.1:8787/` on the host computer, choose **Manage**, then use the **Integrations** tab to add Google Calendar, approve read-only access, and select one shared Calendar. The Google approval callback returns to `http://127.0.0.1:8787/api/integrations/google/callback`, so connection, Calendar selection, changes, and disconnection must be completed from the host using that numeric localhost address. These controls are unavailable from `chores.local` and network addresses.
+
+HomeChore fetches current Calendar Events for Weekly and Daily plans and never writes to Google. Calendar Events display their title and time or all-day status. Use the add control to create an independent, editable HomeChore Duty with a Shared assignment; editing or removing that Duty does not change Google Calendar. Disconnecting stops future Calendar Event retrieval but preserves existing copied Duties.
 
 HomeChore creates a private encryption key at `data/google-calendar.key` when needed. It encrypts the Google refresh token stored in `data/homechore.db`. Back up this key with the database; without it, the Household must reconnect Google Calendar after a restore.
 
@@ -134,10 +138,11 @@ The Local Edition deliberately favors understandable self-hosting over internet 
 
 Meal Option images up to 5 MB are resized to a 480px maximum edge and saved as compact WebP Media Assets.
 
-- `data/homechore.db` contains schedules, Household settings, Duties, and Meal Options.
+- `data/homechore.db` contains schedules, Household settings, Duties, Meal Options, and the encrypted Google refresh token when connected.
 - `data/uploads/` contains Meal Option image files.
+- `data/google-calendar.key` decrypts the saved Google connection. Keep it private and back it up with the database.
 
-To back up HomeChore, stop it with `Ctrl+C`, copy `data/homechore.db` and the complete `data/uploads/` directory, then restart it with `npm start`. Do not copy the database while the server is running.
+To back up HomeChore, stop it with `Ctrl+C`, copy `data/homechore.db`, `data/google-calendar.key`, and the complete `data/uploads/` directory, then restart it with `npm start`. Do not copy the database while the server is running. Restoring the database without the matching key requires reconnecting Google Calendar.
 
 ## Future Work
 
@@ -147,7 +152,7 @@ The Local Edition is the complete open-source planner for a trusted home network
 - Progressive Web App and offline support.
 - In-app backup/download and restore, plus automatic startup after the host restarts.
 - Optional port-80 and reverse-proxy deployment guidance for advanced self-hosters.
-- Recurring Duty templates, an Assignee-focused Today view, missed-Duty notes, and calendar integration.
+- Recurring Duty templates, an Assignee-focused Today view, and missed-Duty notes.
 - Multilingual labels, meal-derived shopping lists, and QR-code access.
 - Further refinement of the default Duty and Meal Option catalogs for individual Households.
 
