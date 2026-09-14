@@ -27,7 +27,7 @@ export const weekdays = [
 export const dutyEmojiOptions = [
   '🧹', '🧺', '=🛏️', '🍳', '🧽', '🪟', '🚗', '🚙', '🚕', '🚌', '🛵', '🚲', '🅿️', '🗑️', '🛒', '🌿', '👶', '📌',
   '🧴', '🪣', '🧼', '🧻', '🧯', '🧰', '🔧', '🔑', '💡', '🔋', '🪫', '📦',
-  '✉️', '📬', '📚', '🖥️', '📱', '🛁', '🚿', '🪥', '🧸', '🐕', '🐈',
+  '✉️', '📬', '📚', '🖥️', '📱', '🛁', '🚿', '🪥', '🧸', '🐕', '🐈', '🧗🏼‍♂️',
   '🌱', '💧', '🪴', '🧑‍🍳', '🥗', '🍽️', '🧃', '🚶', '🏃', '🧘', '💊', '🩺',
   '🧷', '🪡', '✂️', '🧾', '💳', '🎁', '🎂', '🗓️', '⏰', '✅', '⭐', '❤️',
 ].map((emoji) => ({ label: emoji, value: emoji }))
@@ -37,6 +37,7 @@ const dutyEmojiSuggestions = [
   { words: ['bathroom', 'toilet'], emoji: '🧽' }, { words: ['window'], emoji: '🪟' }, { words: ['car'], emoji: '🚗' },
   { words: ['trash', 'recycling', 'rubbish'], emoji: '🗑️' }, { words: ['grocery', 'shopping'], emoji: '🛒' },
   { words: ['garden', 'plant'], emoji: '🌿' }, { words: ['kid', 'child', 'school'], emoji: '👶' },
+  { words: ['rock', 'climb'], emoji: '🧗🏼‍♂️' },
 ]
 
 export function parseDate(value) { const [year, month, day] = value.split('-').map(Number); return new Date(year, month - 1, day) }

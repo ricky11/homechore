@@ -140,7 +140,7 @@ export const usePlannerStore = defineStore('planner', () => {
     const time = calendarEventTimeForDay(day, event)
     const timeMinutes = minutesFor(time)
     const period = periods.value.find((item) => timeMinutes !== null && timeMinutes >= minutesFor(item.start) && timeMinutes < minutesFor(item.end)) ?? periods.value[0]
-    day.duties.push({ id: createId(), sourceId: null, sourceEventId: event.id, name: event.title, area: 'Calendar', emoji: '', period: period?.id ?? 'morning', assignee: 'Shared', time: period && timeOptionsFor(period.id).some((option) => option.value === time) ? time : '' })
+    day.duties.push({ id: createId(), sourceId: null, sourceEventId: event.id, name: event.title, area: 'Calendar', emoji: '', period: period?.id ?? 'morning', assignee: '', time: period && timeOptionsFor(period.id).some((option) => option.value === time) ? time : '' })
   }
   function timeOptionsFor(periodId) { const period = periods.value.find((item) => item.id === periodId); return period ? allTimeOptions.filter((option) => minutesFor(option.value) >= minutesFor(period.start) && minutesFor(option.value) < minutesFor(period.end)) : [] }
   function changeDutyPeriod(duty, periodId) { duty.period = periodId; if (duty.time && !timeOptionsFor(periodId).some((option) => option.value === duty.time)) duty.time = '' }

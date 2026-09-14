@@ -113,10 +113,10 @@ test('copies a Calendar Event once as an independent Duty with safe time mapping
   planner.copyCalendarEvent(laterDay, timedEvent)
 
   assert.deepEqual(startDay.duties.map(({ sourceEventId, name, assignee, period, time }) => ({ sourceEventId, name, assignee, period, time })), [
-    { sourceEventId: 'timed', name: 'School concert', assignee: 'Shared', period: 'evening', time: '17:00' },
-    { sourceEventId: 'all-day', name: 'School holiday', assignee: 'Shared', period: 'morning', time: '' },
-    { sourceEventId: 'unmappable', name: 'Midday appointment', assignee: 'Shared', period: 'morning', time: '' },
-    { sourceEventId: 'non-slot', name: 'Afternoon appointment', assignee: 'Shared', period: 'evening', time: '' },
+    { sourceEventId: 'timed', name: 'School concert', assignee: '', period: 'evening', time: '17:00' },
+    { sourceEventId: 'all-day', name: 'School holiday', assignee: '', period: 'morning', time: '' },
+    { sourceEventId: 'unmappable', name: 'Midday appointment', assignee: '', period: 'morning', time: '' },
+    { sourceEventId: 'non-slot', name: 'Afternoon appointment', assignee: '', period: 'evening', time: '' },
   ])
   assert.deepEqual(laterDay.duties.map(({ sourceEventId, period, time }) => ({ sourceEventId, period, time })), [
     { sourceEventId: 'timed', period: 'morning', time: '' },
