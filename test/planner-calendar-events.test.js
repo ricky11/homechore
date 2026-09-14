@@ -74,6 +74,23 @@ test('keeps the plan usable when Calendar Event retrieval fails', async () => {
   assert.equal(planner.calendarEventsError, 'Google Calendar is unavailable.')
 })
 
+test('opens the Week containing a routed Daily plan', async () => {
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === '/api/state' && !options.method) return response(createState())
+    if (url === '/api/state') return response({ saved: true })
+    if (String(url).startsWith('/api/calendar-events')) return response({ events: [] })
+    if (url === '/api/integrations/google') return response({ status: 'ready' })
+    throw new Error(`Unexpected request: ${url}`)
+  }
+  setActivePinia(createPinia())
+  const planner = usePlannerStore()
+  await planner.initialize()
+
+  await planner.openWeekForDate('2026-09-25')
+
+  assert.equal(planner.currentWeek.id, '2026-09-21')
+})
+
 test('copies a Calendar Event once as an independent Duty with safe time mapping', () => {
   setActivePinia(createPinia())
   const planner = usePlannerStore()
@@ -86,21 +103,25 @@ test('copies a Calendar Event once as an independent Duty with safe time mapping
   const timedEvent = { id: 'timed', title: 'School concert', start: '2026-09-14T17:00:00+08:00', end: '2026-09-14T18:00:00+08:00', allDay: false }
   const allDayEvent = { id: 'all-day', title: 'School holiday', start: '2026-09-14', end: '2026-09-16', allDay: true }
   const unmappableEvent = { id: 'unmappable', title: 'Midday appointment', start: '2026-09-14T12:15:00+08:00', end: '2026-09-14T13:15:00+08:00', allDay: false }
+  const nonSlotEvent = { id: 'non-slot', title: 'Afternoon appointment', start: '2026-09-14T16:15:00+08:00', end: '2026-09-14T17:15:00+08:00', allDay: false }
 
   planner.copyCalendarEvent(startDay, timedEvent)
   planner.copyCalendarEvent(startDay, timedEvent)
   planner.copyCalendarEvent(startDay, allDayEvent)
   planner.copyCalendarEvent(startDay, unmappableEvent)
+  planner.copyCalendarEvent(startDay, nonSlotEvent)
   planner.copyCalendarEvent(laterDay, timedEvent)
 
   assert.deepEqual(startDay.duties.map(({ sourceEventId, name, assignee, period, time }) => ({ sourceEventId, name, assignee, period, time })), [
     { sourceEventId: 'timed', name: 'School concert', assignee: 'Shared', period: 'evening', time: '17:00' },
     { sourceEventId: 'all-day', name: 'School holiday', assignee: 'Shared', period: 'morning', time: '' },
     { sourceEventId: 'unmappable', name: 'Midday appointment', assignee: 'Shared', period: 'morning', time: '' },
+    { sourceEventId: 'non-slot', name: 'Afternoon appointment', assignee: 'Shared', period: 'evening', time: '' },
   ])
   assert.deepEqual(laterDay.duties.map(({ sourceEventId, period, time }) => ({ sourceEventId, period, time })), [
     { sourceEventId: 'timed', period: 'morning', time: '' },
   ])
+  assert.match(planner.dutyOptionsFor(startDay.duties[0])[0].label, /School concert.*Calendar/)
   assert.equal(planner.calendarEventIsCopied(startDay, timedEvent), true)
   planner.removeDuty(startDay, startDay.duties[0].id)
   assert.equal(planner.calendarEventIsCopied(startDay, timedEvent), false)

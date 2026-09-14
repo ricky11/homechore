@@ -13,7 +13,7 @@ function printSchedule() { globalThis.print() }
 
 <template>
   <header class="app-header">
-    <div class="brand-block"><div class="brand-mark" aria-hidden="true">{{ planner.household.icon }}</div><div><p class="eyebrow">{{ planner.household.name }}</p><h1>HomeChore</h1><p class="subtitle">A simple household routine and meal planner for busy families and their helpers.</p></div></div>
+    <RouterLink class="brand-block" to="/"><div class="brand-mark" aria-hidden="true">{{ planner.household.icon }}</div><div><p class="eyebrow">{{ planner.household.name }}</p><h1>HomeChore</h1><p class="subtitle">A simple household routine and meal planner for busy families and their helpers.</p></div></RouterLink>
     <div class="header-actions no-print">
       <span class="save-state">{{ planner.saveState }}</span>
       <Button secondary aria-label="Manage options" @click="emit('manage')"><Settings2 :size="18" /><span class="action-label">Manage</span></Button>

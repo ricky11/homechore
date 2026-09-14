@@ -20,7 +20,8 @@
     "multicast-dns": "^7.2.5",
     "naive-ui": "^2.45.3",
     "pinia": "^4.0.3",
-    "vue": "^3.5.41"
+    "vue": "^3.5.41",
+    "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",

@@ -105,6 +105,7 @@ export const usePlannerStore = defineStore('planner', () => {
   }
   async function navigateWeek(amount) { selectedDayIndex.value = null; await fetchSharedState(); await loadWeek(toDateKey(addDays(parseDate(currentWeek.value.id), amount * 7))) }
   async function goToToday() { selectedDayIndex.value = null; await fetchSharedState(); await loadWeek(toDateKey(mondayFor())) }
+  async function openWeekForDate(date) { selectedDayIndex.value = null; await fetchSharedState(); await loadWeek(toDateKey(mondayFor(parseDate(date)))) }
   async function copyPreviousWeek() {
     const previous = weeks.value[toDateKey(addDays(parseDate(currentWeek.value.id), -7))]
     if (!previous) return
@@ -120,6 +121,12 @@ export const usePlannerStore = defineStore('planner', () => {
   function snapshotDuty(dutyId, period = periods.value[0]?.id ?? 'morning') { const source = catalog.value.duties.find((duty) => duty.id === dutyId); return { id: createId(), sourceId: dutyId, name: source?.name ?? 'New duty', area: source?.area ?? 'General', emoji: source?.emoji ?? '', period, assignee: 'Shared', time: '' } }
   function addDuty(day, periodId) { day.duties.push(catalog.value.duties[0] ? snapshotDuty(catalog.value.duties[0].id, periodId) : { id: createId(), sourceId: null, name: '', area: 'General', period: periodId, assignee: 'Shared', time: '' }) }
   function dutiesFor(day, periodId) { return day.duties.filter((duty) => duty.period === periodId) }
+  function dutySelectValue(duty) { return duty.sourceId ?? (duty.sourceEventId ? `calendar-event:${duty.sourceEventId}` : null) }
+  function dutyOptionsFor(duty) {
+    return duty.sourceEventId && !duty.sourceId
+      ? [{ label: `${duty.emoji || suggestedDutyEmoji(duty.name)} ${duty.name} · Calendar`, value: dutySelectValue(duty) }, ...dutyOptions.value]
+      : dutyOptions.value
+  }
   function dutyEmoji(duty) { return catalog.value.duties.find((option) => option.id === duty.sourceId)?.emoji || duty.emoji || suggestedDutyEmoji(duty.name) }
   function calendarEventsFor(day) { return calendarEventsForDay(calendarEvents.value, day.date) }
   function calendarEventIsCopied(day, event) { return day.duties.some((duty) => duty.sourceEventId === event.id) }
@@ -131,7 +138,8 @@ export const usePlannerStore = defineStore('planner', () => {
   function copyCalendarEvent(day, event) {
     if (calendarEventIsCopied(day, event)) return
     const time = calendarEventTimeForDay(day, event)
-    const period = periods.value.find((item) => timeOptionsFor(item.id).some((option) => option.value === time)) ?? periods.value[0]
+    const timeMinutes = minutesFor(time)
+    const period = periods.value.find((item) => timeMinutes !== null && timeMinutes >= minutesFor(item.start) && timeMinutes < minutesFor(item.end)) ?? periods.value[0]
     day.duties.push({ id: createId(), sourceId: null, sourceEventId: event.id, name: event.title, area: 'Calendar', emoji: '', period: period?.id ?? 'morning', assignee: 'Shared', time: period && timeOptionsFor(period.id).some((option) => option.value === time) ? time : '' })
   }
   function timeOptionsFor(periodId) { const period = periods.value.find((item) => item.id === periodId); return period ? allTimeOptions.filter((option) => minutesFor(option.value) >= minutesFor(period.start) && minutesFor(option.value) < minutesFor(period.end)) : [] }
@@ -177,5 +185,5 @@ export const usePlannerStore = defineStore('planner', () => {
       void fetchCalendarEvents(start, toDateKey(addDays(parseDate(start), 7)))
     }
   })
-  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, calendarEvents, calendarEventsError, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutyEmoji, calendarEventsFor, calendarEventTime, calendarEventIsCopied, copyCalendarEvent, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
+  return { weeks, currentWeek, catalog, household, selectedDayIndex, loading, serverError, saveState, previousWeekAvailable, householdError, googleCalendarIntegration, calendarEvents, calendarEventsError, selectedDay, weekLabel, dutyOptions, assigneeOptions, periods, periodOptions, weekIsBlank, initialize, navigateWeek, goToToday, openWeekForDate, copyPreviousWeek, clearWeek, addDuty, dutiesFor, dutySelectValue, dutyOptionsFor, dutyEmoji, calendarEventsFor, calendarEventTime, calendarEventIsCopied, copyCalendarEvent, timeOptionsFor, changeDutyPeriod, changeDuty, removeDuty, availabilityFor, mealOptions, mealSummary, saveHousehold, assigneeInUse, addAssignee, removeAssignee, renameAssignee, setOffDay, periodInUse, addRoutinePeriod, moveRoutinePeriod, removeRoutinePeriod, addDutyOption, addMealOption, commitOptionEdit, deleteOption, uploadMealImage, fetchGoogleCalendarIntegration, googleCalendarCalendars, selectGoogleCalendar, disconnectGoogleCalendar }
 })
